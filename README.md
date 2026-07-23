@@ -2,27 +2,37 @@
 
 Agent and CLI that documents the evidence trail behind a piece of work — the request, the spec, the plan, the docs and code, and the validations — then grades that evidence across parameters and issues a final score.
 
+## Status
+
+**Scaffold stage.** The evidence model, the grading parameters, and the scoring
+verb are not implemented yet. What ships today is the agent baseline this repo
+was scaffolded with: an agent-first CLI, a mesh identity, the vendored skill
+kit, and CI. Some self-description strings still carry template wording from the
+scaffold.
+
 ## What you get
 
 - **An agent-first CLI** cited from [teken](https://github.com/agentculture/teken)
   (`afi-cli`) — the runtime package has no third-party dependencies.
-- **A mesh identity** — `culture.yaml` (`suffix` + `backend`) and the matching
-  resident prompt file (`AGENTS.colleague.md`, since this template runs
-  `backend: colleague`).
-- **The canonical guildmaster skill kit** (11 skills) under `.claude/skills/`,
-  vendored cite-don't-import. See [`docs/skill-sources.md`](docs/skill-sources.md).
+- **A mesh identity** — `culture.yaml` (`suffix: evidence-cli`,
+  `backend: colleague`) and the matching resident prompt file,
+  `AGENTS.colleague.md`.
+- **A vendored skill kit** (18 skills) under `.claude/skills/`, cite-don't-import.
+  Provenance in [`docs/skill-sources.md`](docs/skill-sources.md).
 - **A build + deploy baseline** — pytest, lint, the agent-first rubric gate, and
   PyPI Trusted Publishing wired into GitHub Actions.
 
-## Quickstart
+## Install
 
 ```bash
-uv sync
-uv run pytest -n auto                 # run the test suite
-uv run evidence-cli whoami  # identity from culture.yaml
-uv run evidence-cli learn   # self-teaching prompt (add --json)
-uv run teken cli doctor . --strict    # the agent-first rubric gate CI runs
+uv tool install evidence-cli    # or: pipx install evidence-cli
+evidence whoami
 ```
+
+The installed console script is `evidence` (the distribution is named
+`evidence-cli`); `python -m evidence` works too. Note that the CLI's own help and
+docs text currently spell the command `evidence-cli` — `evidence` is the name
+that actually resolves.
 
 ## CLI
 
@@ -39,20 +49,25 @@ Every command supports `--json`. Results go to stdout, errors/diagnostics to
 stderr (never mixed). Exit codes: `0` success, `1` user error, `2` environment
 error, `3+` reserved.
 
-## Make it your own
+## Development
 
-1. Rename the package `evidence/` and the `evidence-cli`
-   CLI/dist name throughout `pyproject.toml`, the package, `tests/`,
-   `sonar-project.properties`, and this `README.md`. The name is hard-coded in
-   ~100 places, so list every occurrence first — see the `git grep` discovery
-   command in [`CLAUDE.md`](CLAUDE.md), the authoritative rename procedure.
-2. Edit `culture.yaml` with your `suffix` and `backend`.
-3. Rewrite `CLAUDE.md` for your agent and run `/init`.
-4. Re-vendor only the skills you need from guildmaster (see
-   [`docs/skill-sources.md`](docs/skill-sources.md)).
+```bash
+uv sync                               # create .venv and install dev deps
+uv run pytest -n auto                 # run the test suite (22 tests, ~1s)
+uv run evidence learn                 # self-teaching prompt (add --json)
+uv run teken cli doctor . --strict    # the agent-first rubric gate CI runs
+```
 
-See [`CLAUDE.md`](CLAUDE.md) for the full conventions (version-bump-every-PR,
-the `cicd` PR lane, deploy setup).
+CI also gates on `black`, `isort`, `flake8`, `bandit`, `markdownlint-cli2`, a 60%
+coverage floor, and — where `SONAR_TOKEN` is configured — the SonarCloud quality
+gate.
+
+## Contributing
+
+Every PR bumps the version in `pyproject.toml` — CI's `version-check` job blocks
+merge otherwise, and a merge to `main` touching `evidence/**` or `pyproject.toml`
+publishes that version straight to PyPI. See [`CLAUDE.md`](CLAUDE.md) for the
+full conventions (the `cicd` PR lane, worktree layout, skill re-sync procedure).
 
 ## License
 
