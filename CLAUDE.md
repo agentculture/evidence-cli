@@ -43,14 +43,22 @@ uv run black --check evidence tests
 uv run isort --check-only evidence tests
 uv run flake8 evidence tests
 uv run bandit -c pyproject.toml -r evidence
+npm install -g markdownlint-cli2@0.21.0   # CI installs it inline — see below
 markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
 uv run teken cli doctor . --strict        # the agent-first rubric gate
 ```
 
 Coverage has a floor of 60 (`[tool.coverage.report] fail_under`), and SonarCloud
 gates the `test` job when `SONAR_TOKEN` is set (`sonar.qualitygate.wait=true`).
-Both the lint tools and the rubric gate are dev-only dependencies; `teken` (the
-`afi-cli` toolchain) supplies `teken cli doctor`.
+
+Every gate but one comes from the `dev` dependency group and runs under
+`uv run` — including `teken` (the `afi-cli` toolchain), which supplies
+`teken cli doctor`. **`markdownlint-cli2` is the exception:** it is not in
+`pyproject.toml`, and the lint job provisions it inline with a pinned global
+`npm install`. Skip that line if the binary is already on PATH, but check
+`markdownlint-cli2 --version` against the pin first — another version can apply
+a different rule set to the same `.markdownlint-cli2.yaml` and disagree with CI
+in either direction.
 
 ## The naming triple — and the mismatch
 
