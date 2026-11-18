@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-11-18
+
+### Added
+
+- The delivery record for the run check and the answer check:
+  `docs/deliveries/2026-11-18-evidence-cli-run-check-and-answer-check.md`, with
+  the evidence, behaviour changes, deviations and lapses filed in `.devague/`.
+  The run is recorded as partial: the comparison with associate's checker
+  covered three live exports, not every saved one.
+
+### Changed
+
+- `tests/test_release_docs.py` no longer pins the package version to 0.7.0; it
+  checks that the 0.7.0 changelog entry exists.
+
 ## [0.7.0] - 2026-11-18
 
 Before this release the package was the `culture-agent-template` scaffold: the

@@ -12,8 +12,10 @@ def _read(name: str) -> str:
     return (ROOT / name).read_text(encoding="utf-8")
 
 
-def test_version_is_0_7_0() -> None:
-    assert re.search(r'^version = "0\.7\.0"$', _read("pyproject.toml"), re.MULTILINE)
+def test_version_is_at_least_0_7_0() -> None:
+    found = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"$', _read("pyproject.toml"), re.MULTILINE)
+    assert found is not None
+    assert tuple(int(part) for part in found.groups()) >= (0, 7, 0)
 
 
 def test_changelog_has_0_7_0_entry_naming_the_scaffold() -> None:

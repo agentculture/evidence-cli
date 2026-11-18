@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-18T10:42:31Z",
-  "updated": "2026-11-18T15:46:38Z",
+  "updated": "2026-11-18T15:52:27Z",
   "claims": [
     {
       "id": "c1",
@@ -640,7 +640,7 @@
         "PR 4 code review finding 1"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l3",
@@ -651,7 +651,7 @@
         "PR 4 code review finding 6"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l4",
@@ -662,7 +662,7 @@
         "task reports t1, t3, t4, t5"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l5",
@@ -673,7 +673,7 @@
         "obligation o1"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ],
   "obligations": [
