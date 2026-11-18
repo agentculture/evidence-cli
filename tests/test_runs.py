@@ -245,3 +245,82 @@ def test_a_refused_handback_is_named_by_whether_the_run_ended(tmp_path: Path):
         assert result["accuracy"]["python_recheck_verdict"] == "refused"
         outcomes[run_ended] = result["handback_outcome"]
     assert outcomes == {True: "refused_after_rounds", False: "refused_unresolved"}
+
+
+# --- review findings: where a child walk is read from, cut lines, newer formats ------------
+
+
+def _child_link(child_walk: str) -> dict[str, str]:
+    return {
+        "id": "c1",
+        "ts": "2026-11-18T00:00:00+00:00",
+        "child_model": "senses",
+        "child_walk": child_walk,
+        "child_session_id": "child",
+    }
+
+
+def test_a_relative_child_walk_resolves_against_the_export_not_the_cwd(tmp_path, monkeypatch):
+    child = _export(tmp_path / "sess" / "child" / "export", "child text, quotable line\n")
+    _write_facts(child, [_fact("w1", "child text, quotable line")])
+    link = _child_link("../../child/export/walk.jsonl")
+    current = _export(tmp_path / "sess" / "cur" / "export", child=link)
+    _write_facts(current, [_fact("c1:w1", "child text, quotable line")])
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    result = inspect_export(current, load_accuracy())
+    assert result["facts"][0]["verdict"] == "passed"
+    assert result["facts"][0]["run"] == "c1"
+
+
+def _cut_last_line(walk: Path) -> None:
+    """Append a line cut in the middle of a two-byte character, as a killed run leaves it."""
+    cut = '{"id": "w2", "tool": "read", "purpose": "café"}'.encode("utf-8")[:-3]
+    with walk.open("ab") as handle:
+        handle.write(cut)
+
+
+def test_a_child_walk_cut_mid_character_is_read_up_to_the_cut(tmp_path):
+    child = _export(tmp_path / "child" / "export", "child text, quotable line\n")
+    _write_facts(child, [_fact("w1", "child text, quotable line")])
+    _cut_last_line(child / "walk.jsonl")
+    current = _export(tmp_path / "cur" / "export", child=_child_link(str(child / "walk.jsonl")))
+    _write_facts(current, [_fact("c1:w1", "child text, quotable line")])
+    result = inspect_export(current, load_accuracy())
+    assert result["facts"][0]["verdict"] == "passed"
+    assert result["report"]["children"][0]["report"]["facts"]["passed"] == 1
+
+
+def _newer(root: Path, version: Any = 3) -> Path:
+    walk = root / "walk.jsonl"
+    lines = walk.read_text(encoding="utf-8").splitlines()
+    lines[0] = json.dumps({"format": {"name": "associate-walk", "version": version}})
+    walk.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return root
+
+
+def test_a_newer_format_child_is_not_loaded_and_is_listed_as_unsupported(tmp_path):
+    child = _export(tmp_path / "child" / "export", "child text, quotable line\n")
+    _write_facts(child, [_fact("w1", "child text, quotable line")])
+    _newer(child)
+    current = _export(tmp_path / "cur" / "export", child=_child_link(str(child / "walk.jsonl")))
+    _write_facts(current, [_fact("c1:w1", "child text, quotable line")])
+    result = inspect_export(current, load_accuracy())
+    assert result["facts"][0]["reason"] == "source_unknown"
+    assert result["unsupported_runs"] == [{"label": "c1", "walk_format": 3}]
+
+
+def test_a_newer_format_prior_run_is_not_loaded_and_is_listed_as_unsupported(tmp_path):
+    prior = _newer(_export(tmp_path / "prior" / "export", "prior text, quotable line\n"))
+    current = _export(tmp_path / "cur" / "export")
+    _write_facts(current, [_fact("prior:w1", "prior text, quotable line")])
+    result = inspect_export(current, load_accuracy(), continue_from=prior)
+    assert result["facts"][0]["reason"] == "source_unknown"
+    assert result["unsupported_runs"] == [{"label": "prior", "walk_format": 3}]
+
+
+def test_a_supported_run_lists_no_unsupported_runs(tmp_path):
+    current = _export(tmp_path / "cur" / "export")
+    _write_facts(current, [_fact("w1")])
+    assert inspect_export(current, load_accuracy())["unsupported_runs"] == []

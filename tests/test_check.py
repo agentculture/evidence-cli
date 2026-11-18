@@ -486,3 +486,53 @@ def test_no_module_under_evidence_imports_associate():
     assert len(modules) > 5
     offenders = [str(p) for p in modules if "associate" in _imported_roots(p)]
     assert offenders == []
+
+
+# --- review findings: cut walks, the format marker, the order of reading ------------------
+
+
+def test_a_walk_cut_mid_character_is_read_up_to_the_cut(tmp_path):
+    export = fixture(tmp_path)
+    cut = '{"id": "w9", "tool": "read", "purpose": "café"}'.encode("utf-8")[:-3]
+    with (export / "walk.jsonl").open("ab") as handle:
+        handle.write(cut)
+    loaded = check_mod.load_export(export)
+    assert [e["id"] for e in loaded["entries"]] == ["w1", "w2", "w3", "w4"]
+    assert check_mod.inspect_export(export, ACCURACY)["applicable"] is True
+
+
+def test_a_newer_format_export_is_unsupported_before_its_facts_file_is_read(tmp_path):
+    export = fixture(tmp_path, marker={"format": {"name": "associate-walk", "version": 3}})
+    (export / check_mod.FACTS_FILENAME).write_text("{not json", encoding="utf-8")
+    result = check_mod.inspect_export(export, ACCURACY)
+    assert result["unsupported"] is True
+    assert result["walk_format"] == 3
+
+
+@pytest.mark.parametrize(
+    "version, named",
+    [(3.0, "3.0"), ("3", "'3'"), (True, "True"), (0, "0"), (-2, "-2"), (None, "missing or null")],
+)
+def test_a_marker_version_that_is_not_a_positive_int_is_unsupported_and_named(
+    tmp_path, version, named
+):
+    export = fixture(tmp_path, marker={"format": {"name": "associate-walk", "version": version}})
+    result = check_mod.inspect_export(export, ACCURACY)
+    assert result["unsupported"] is True
+    assert "no format marker" not in result["not_applicable_reason"]
+    assert named in result["not_applicable_reason"]
+
+
+def test_a_marker_with_no_version_is_unsupported_not_a_pre_change_export(tmp_path):
+    export = fixture(tmp_path, marker={"format": {"name": "associate-walk"}})
+    result = check_mod.inspect_export(export, ACCURACY)
+    assert result["unsupported"] is True
+    assert "no format marker" not in result["not_applicable_reason"]
+    assert "missing" in result["not_applicable_reason"]
+
+
+def test_a_marker_line_with_another_key_is_still_the_marker(tmp_path):
+    marker = {"format": {"name": "associate-walk", "version": 3}, "ts": "2026-11-18T00:00:00Z"}
+    result = check_mod.inspect_export(fixture(tmp_path, marker=marker), ACCURACY)
+    assert result["unsupported"] is True
+    assert result["walk_format"] == 3

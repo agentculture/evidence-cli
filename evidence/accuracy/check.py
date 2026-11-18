@@ -628,29 +628,70 @@ class ExportError(Exception):
     """An export directory that cannot be read (the verb turns it into a CliError)."""
 
 
-def _read_walk(walk_path: Path) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
-    """The format marker (or None for a pre-marker walk) and the tool entries."""
-    marker: Optional[dict[str, Any]] = None
-    entries: list[dict[str, Any]] = []
+def _walk_lines(walk_path: Path) -> list[Any]:
+    """Each line of the walk that is whole JSON, parsed; any other line is skipped.
+
+    A partly written last line is what a killed run leaves, and the cut may fall
+    inside a multi-byte character: a line that is not UTF-8 is skipped exactly
+    like a line that is not JSON. A walk that cannot be read is an ExportError.
+    """
     try:
-        text = walk_path.read_text(encoding="utf-8")
+        raw = walk_path.read_bytes()
     except OSError as err:
         raise ExportError(f"cannot read {walk_path}: {err.strerror or err}") from err
-    for line in text.splitlines():
+    parsed_lines: list[Any] = []
+    # surrogateescape keeps the line split of a str; a line holding an escape was not UTF-8.
+    for line in raw.decode("utf-8", errors="surrogateescape").splitlines():
         line = line.strip()
-        if not line:
+        if not line or not _is_utf8(line):
             continue
         try:
-            parsed = json.loads(line)
-        except ValueError:
-            continue  # a partly written last line is what a killed run leaves
+            parsed_lines.append(json.loads(line))
+        except (ValueError, RecursionError):
+            continue
+    return parsed_lines
+
+
+def _is_utf8(line: str) -> bool:
+    try:
+        line.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _read_walk(walk_path: Path) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
+    """The format marker (or None for a pre-marker walk) and the tool entries.
+
+    A line with a ``format`` key is the marker, whatever other keys it has; a
+    ``format`` value that is not an object is a marker with no version.
+    """
+    marker: Optional[dict[str, Any]] = None
+    entries: list[dict[str, Any]] = []
+    for parsed in _walk_lines(walk_path):
         if not isinstance(parsed, dict):
             continue
-        if set(parsed) == {"format"} and isinstance(parsed["format"], dict):
-            marker = parsed["format"]
+        if "format" in parsed:
+            marker = _as_dict(parsed["format"])
         elif _is_entry(parsed):
             entries.append(parsed)
     return marker, entries
+
+
+def _format_of(marker: Optional[Mapping[str, Any]]) -> Any:
+    """1 for a walk with no marker, else the marker's ``version`` as found (None when absent)."""
+    if marker is None:
+        return 1
+    return marker.get("version")
+
+
+def _is_format_version(version: Any) -> bool:
+    return isinstance(version, int) and not isinstance(version, bool) and version >= 1
+
+
+def _is_supported_format(version: Any) -> bool:
+    """True when a walk format (as :func:`load_export` returns it) can be checked here."""
+    return _is_format_version(version) and version <= max(SUPPORTED_WALK_FORMATS)
 
 
 def inside_export(export_dir: Path, path: Path) -> bool:
@@ -696,15 +737,8 @@ def _read_payload(export_dir: Path) -> Optional[dict[str, Any]]:
     return loaded
 
 
-def load_export(export_dir: Path) -> dict[str, Any]:
-    """Read an export directory: walk entries, saved results and the facts payload.
-
-    Returns ``format`` (the walk format version, 1 when there is no marker),
-    ``entries``, ``results`` (walk id to text) and ``payload`` (None when no
-    facts file exists). Only ``results/wN.txt`` names an entry's ``saved_result``
-    may be read, and only inside the export directory.
-    """
-    export_dir = Path(export_dir)
+def _open_walk(export_dir: Path) -> tuple[Any, list[dict[str, Any]]]:
+    """The walk format and tool entries of an export directory, reading nothing else."""
     walk_path = export_dir / WALK_FILENAME
     if not export_dir.is_dir():
         raise ExportError(f"{export_dir} is not a directory")
@@ -713,15 +747,30 @@ def load_export(export_dir: Path) -> dict[str, Any]:
     if not inside_export(export_dir, walk_path):
         raise ExportError(f"{walk_path} points outside the export directory, so it is not read")
     marker, entries = _read_walk(walk_path)
-    version = marker.get("version") if marker else None
-    results = _read_results(export_dir, entries)
-    payload = _read_payload(export_dir)
+    return _format_of(marker), entries
+
+
+def _load_rest(export_dir: Path, version: Any, entries: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        "format": version if isinstance(version, int) and not isinstance(version, bool) else 1,
+        "format": version,
         "entries": entries,
-        "results": results,
-        "payload": payload,
+        "results": _read_results(export_dir, entries),
+        "payload": _read_payload(export_dir),
     }
+
+
+def load_export(export_dir: Path) -> dict[str, Any]:
+    """Read an export directory: walk entries, saved results and the facts payload.
+
+    Returns ``format`` (the walk format version, 1 when there is no marker; the
+    marker's ``version`` as found, None when absent, when it is not a positive
+    integer), ``entries``, ``results`` (walk id to text) and ``payload`` (None
+    when no facts file exists). Only ``results/wN.txt`` names an entry's
+    ``saved_result`` may be read, and only inside the export directory.
+    """
+    export_dir = Path(export_dir)
+    version, entries = _open_walk(export_dir)
+    return _load_rest(export_dir, version, entries)
 
 
 def _call_outcome(entry: Mapping[str, Any]) -> str:
@@ -753,14 +802,10 @@ def _child_links(walk_path: Path) -> list[tuple[str, str]]:
     """Each ``child`` line's id and ``child_walk``, first line per id, in walk order."""
     links: list[tuple[str, str]] = []
     try:
-        text = walk_path.read_text(encoding="utf-8")
-    except OSError:
+        parsed_lines = _walk_lines(walk_path)
+    except ExportError:
         return links
-    for line in text.splitlines():
-        try:
-            parsed = json.loads(line)
-        except ValueError:
-            continue
+    for parsed in parsed_lines:
         child = parsed.get("child") if isinstance(parsed, dict) else None
         if not isinstance(child, dict):
             continue
@@ -783,9 +828,20 @@ def _prior_dir(continue_from: Path) -> Optional[Path]:
     return None
 
 
-def _run_data(directory: Path) -> Optional[dict[str, Any]]:
+def _run_data(
+    directory: Path, label: str, unsupported: list[dict[str, Any]]
+) -> Optional[dict[str, Any]]:
+    """A prior or child run, or None when it cannot be read or its walk format is not supported.
+
+    A run in an unsupported format is not loaded (its payload is not read) and is
+    added to *unsupported* as ``{label, walk_format}``.
+    """
     try:
-        loaded = load_export(directory)
+        version, entries = _open_walk(directory)
+        if not _is_supported_format(version):
+            unsupported.append({"label": label, "walk_format": version})
+            return None
+        loaded = _load_rest(directory, version, entries)
     except ExportError:
         return None
     return {
@@ -795,6 +851,12 @@ def _run_data(directory: Path) -> Optional[dict[str, Any]]:
     }
 
 
+def _child_dir(export_dir: Path, child_walk: str) -> Path:
+    """The child's directory: the parent of its walk, a relative walk taken from the export."""
+    walk = Path(child_walk)
+    return (walk if walk.is_absolute() else export_dir / walk).parent
+
+
 def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) -> dict[str, Any]:
     """Everything :func:`check_handback` reads for one run.
 
@@ -802,21 +864,26 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
     the label ``prior`` when *continue_from* names an export holding a walk, and
     each child the walk links, under its ``cN`` label. Labels are looked up, never
     taken from a fact: a child's directory is the parent of the ``child_walk``
-    its ``child`` line (written by the harness) names. A prior run with no walk is
+    its ``child`` line (written by the harness) names, a relative one taken from
+    the export directory. A child or prior run is another directory and is read
+    from where it is, not confined to the export. A prior run with no walk is
     skipped; a child whose walk cannot be read counts as an empty run, the way the
-    extension reads it.
+    extension reads it. A prior or child run whose walk format is not supported
+    is not loaded (skipped, or an empty child) and is listed in
+    ``unsupported_runs`` as ``{label, walk_format}``.
     """
     export_dir = Path(export_dir)
     current = load_export(export_dir)
+    unsupported: list[dict[str, Any]] = []
     prior_runs: dict[str, dict[str, Any]] = {}
     if continue_from is not None:
         prior_dir = _prior_dir(Path(continue_from))
-        data = _run_data(prior_dir) if prior_dir is not None else None
+        data = _run_data(prior_dir, PRIOR_RUN_LABEL, unsupported) if prior_dir else None
         if data is not None:
             prior_runs[PRIOR_RUN_LABEL] = {"entries": data["entries"], "results": data["results"]}
     children: list[dict[str, Any]] = []
     for label, child_walk in _child_links(export_dir / WALK_FILENAME):
-        data = _run_data(Path(child_walk).parent)
+        data = _run_data(_child_dir(export_dir, child_walk), label, unsupported)
         children.append(
             {
                 "label": label,
@@ -832,6 +899,7 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
         "results": current["results"],
         "prior_runs": prior_runs,
         "children": children,
+        "unsupported_runs": unsupported,
     }
 
 
@@ -843,22 +911,33 @@ def _not_applicable_reason(loaded: Mapping[str, Any]) -> Optional[str]:
     return None
 
 
-def _unsupported_result(export_dir: Path, version: int) -> dict[str, Any]:
-    """The result for a walk format newer than this checker knows: no calls, no counts."""
+def _unsupported_reason(version: Any) -> str:
+    if not _is_format_version(version):
+        found = "missing or null" if version is None else repr(version)
+        return (
+            f"unsupported export: the walk format marker's version is {found}, "
+            "not a positive integer, so it is not checked"
+        )
     known = ", ".join(str(v) for v in SUPPORTED_WALK_FORMATS)
+    return (
+        f"unsupported export: walk format {version} is newer than the formats "
+        f"this checker supports ({known}), so it is not checked"
+    )
+
+
+def _unsupported_result(export_dir: Path, version: Any) -> dict[str, Any]:
+    """The result for a walk format this checker cannot read: no calls, no counts."""
     return {
         "export": str(export_dir),
         "walk_format": version,
         "calls": [],
         "applicable": False,
         "unsupported": True,
-        "not_applicable_reason": (
-            f"unsupported export: walk format {version} is newer than the formats "
-            f"this checker supports ({known}), so it is not checked"
-        ),
+        "not_applicable_reason": _unsupported_reason(version),
         "facts": [],
         "report": None,
         "accepted": None,
+        "unsupported_runs": [],
     }
 
 
@@ -871,18 +950,24 @@ def inspect_export(
     is false, ``facts`` is an empty list and ``report`` is None: facts are not
     applicable, not zero. A walk format above every :data:`SUPPORTED_WALK_FORMATS`
     version gives the same empty shape plus ``unsupported: true``, with the
-    version found in ``walk_format``; its calls are not listed either.
-    *continue_from* adds the prior run under ``prior``; children are always read
-    from the walk's ``child`` lines.
+    version found in ``walk_format``; its calls are not listed either. So does a
+    format marker whose version is not a positive integer, the value named in
+    the reason. The format is tested before anything else of the export is
+    read. ``unsupported_runs`` lists each prior or child run that was not loaded
+    because its walk format is not supported. *continue_from* adds the prior
+    run under ``prior``; children are always read from the walk's ``child``
+    lines.
     """
+    version, _ = _open_walk(Path(export_dir))
+    if not _is_supported_format(version):
+        return _unsupported_result(export_dir, version)
     loaded = load_handback_input(export_dir, continue_from)
-    if loaded["format"] > max(SUPPORTED_WALK_FORMATS):
-        return _unsupported_result(export_dir, loaded["format"])
     calls = summarise_calls(loaded["entries"], accuracy)
     base: dict[str, Any] = {
         "export": str(export_dir),
         "walk_format": loaded["format"],
         "calls": calls,
+        "unsupported_runs": loaded["unsupported_runs"],
     }
     reason = _not_applicable_reason(loaded)
     if reason is not None:
