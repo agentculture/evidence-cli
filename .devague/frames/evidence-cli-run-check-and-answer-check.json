@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-18T10:42:31Z",
-  "updated": "2026-11-18T12:06:22Z",
+  "updated": "2026-11-18T15:00:05Z",
   "claims": [
     {
       "id": "c1",
@@ -272,9 +272,9 @@
     {
       "id": "c16",
       "kind": "requirement",
-      "text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives, compared after the same normalisation the matcher uses; a result names the schema version it was graded under",
+      "text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives; text is compared after collapsing whitespace only (the matcher's line-stamp stripping is not applied to an answer); a result names the schema version it was graded under",
       "origin": "llm",
-      "status": "confirmed",
+      "status": "proposed",
       "honesty_conditions": [
         {
           "id": "h11",
@@ -286,7 +286,13 @@
       "hard_questions": [],
       "links": [],
       "instruction": "",
-      "revisions": []
+      "revisions": [
+        {
+          "text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives, compared after the same normalisation the matcher uses; a result names the schema version it was graded under",
+          "kind": "requirement",
+          "reason": "code review of PR 4, 2026-11-18: the matcher's normalisation also strips a leading number and tab from each line, which removes real numbers from an answer"
+        }
+      ]
     },
     {
       "id": "c17",
