@@ -20,6 +20,7 @@ from evidence.answer import grade as grade_answer
 from evidence.cli._errors import EXIT_USER_ERROR, CliError
 from evidence.cli._output import emit_result
 
+NOTE = "a complete trail does not mean the work is correct"
 _VERDICT_TEXT = {
     "matches": "matches",
     "does_not_match": "does not match",
@@ -69,13 +70,17 @@ def _list_lines(label: str, items: list[dict[str, Any]]) -> list[str]:
 
 
 def _render(result: dict[str, Any]) -> str:
-    lines = [f"result: {_VERDICT_TEXT[result['verdict']]}"]
+    lines = [
+        "answer check: a match against recorded expected values",
+        f"result: {_VERDICT_TEXT[result['verdict']]}",
+    ]
     if result["cause"]:
         lines.append(f"cause: {_CAUSE_TEXT.get(result['cause'], result['cause'])}")
     lines += _list_lines("found", result["found"])
     lines += _list_lines("missing", result["missing"])
     lines += _list_lines("forbidden present", result["forbidden_present"])
     lines.append(f"schema version: {result['schema_version']}")
+    lines.append(NOTE)
     return "\n".join(lines)
 
 
@@ -91,13 +96,13 @@ def cmd_grade(args: argparse.Namespace) -> None:
             "fix the expected values to match evidence/data/expected_values.schema.json",
         ) from exc
     json_mode = bool(getattr(args, "json", False))
-    emit_result(result if json_mode else _render(result), json_mode=json_mode)
+    emit_result({**result, "note": NOTE} if json_mode else _render(result), json_mode=json_mode)
 
 
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser(
         "grade",
-        help="Check an answer against expected values: matches, does not match, cannot tell.",
+        help="Answer check: a match against recorded expected values.",
     )
     p.add_argument(
         "--answer-file", required=True, help="Answer text file, or - for standard input."

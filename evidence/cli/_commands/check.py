@@ -27,6 +27,7 @@ from evidence.accuracy.counts import SOURCE_KINDS, empty_counts
 from evidence.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from evidence.cli._output import emit_diagnostic, emit_result
 
+NOTE = "a complete trail does not mean the work is correct"
 FLAGS_NAME = "flags.json"
 FLAGS_SUBDIR = "evidence"
 _COUNT_KEYS = tuple(empty_counts())
@@ -227,7 +228,11 @@ def _render_flags_file(info: dict[str, Any]) -> str:
 
 def render(report: dict[str, Any]) -> str:
     """The text form of the whole report."""
-    out = [_settings_line(report["settings"]), ""]
+    out = [
+        "run check: counts of checked quotes and backed conclusions",
+        _settings_line(report["settings"]),
+        "",
+    ]
     for entry in report["runs"]:
         out += _render_run(entry) + [""]
     runs = report["sums"]["runs"]
@@ -244,6 +249,7 @@ def render(report: dict[str, Any]) -> str:
         "",
         "quote found means the quote was found in the saved result the fact cites; it is not",
         "a statement that the fact is true. Unchecked facts are never counted as quote found.",
+        NOTE,
     ]
     return "\n".join(out)
 
@@ -280,6 +286,7 @@ def cmd_check(args: argparse.Namespace) -> int:
         "runs": entries,
         "sums": _sums(entries),
         "flags_file": flags_file,
+        "note": NOTE,
     }
     emit_result(report if json_mode else render(report), json_mode=json_mode)
     if not flags_file["written"] and flags_file.get("reason") != "--no-flags":
@@ -295,7 +302,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser(
         "check",
-        help="Re-check the hand-back facts of run export directories; print counts and sums.",
+        help="Run check: counts of checked quotes and backed conclusions for run exports.",
     )
     p.add_argument("exports", nargs="+", metavar="export_dir", help="Export directories.")
     p.add_argument("--settings", metavar="FILE", help="A JSON settings file (default: bundled).")
