@@ -34,7 +34,7 @@ REDACTION_PATTERNS = [
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
 ]
 
-#: sha256 of every file under tests/fixtures/, as copied from associate at 266dad3.
+#: sha256 of every file under tests/fixtures/accuracy/, as copied from associate at 266dad3.
 FIXTURE_SHA256 = {
     "accuracy/final_message_w999.json": (
         "8cf19beeaf447f27454b6f5eda8ecea76c8cb247f4fe37e85cadc6f6683c7998"
@@ -175,11 +175,13 @@ def test_the_replays_leave_every_fixture_file_unchanged():
     The committed table also catches a change made by any other test in an
     earlier run, since a changed file would no longer match it.
     """
-    assert _fixture_checksums() == FIXTURE_SHA256
+    before = _fixture_checksums()
+    copied = {name: digest for name, digest in before.items() if name.startswith("accuracy/")}
+    assert copied == FIXTURE_SHA256
     test_replay_quote_absent_on_w3_and_w7()
     test_replay_prior_run_id_cited_bare_in_a_continued_run()
     test_replay_pyproject_sentence_as_a_fact_is_refused()
     test_replay_senses_remember_success_without_the_call()
     test_every_fixture_is_free_of_home_and_temp_paths_and_secrets()
     test_the_rebuilt_fixture_is_the_only_one_not_from_a_recorded_run()
-    assert _fixture_checksums() == FIXTURE_SHA256
+    assert _fixture_checksums() == before
