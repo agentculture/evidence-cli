@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-18
+
+Before this release the package was the `culture-agent-template` scaffold: the
+verbs `whoami`, `learn`, `explain`, `overview`, `doctor` and the `cli` group,
+and nothing that checks a run or an answer. Every entry below 0.7.0 is that
+scaffold's history, not work done on evidence-cli itself. This release is the
+first one with content of its own.
+
+### Added
+
+- **`evidence check`, the run check.** Reads one or more run exports
+  (`walk.jsonl`, saved results, the facts payload), re-runs the quote match from
+  the saved files, reports counts per kind and per source kind, reports any
+  disagreement with the counts in the run's own `report.json`, and sums over the
+  runs where facts apply. It is read-only on the export and writes a reviewer
+  flags file beside it. Built and unit-tested; not yet run against live model
+  output.
+- **`evidence grade`, the answer check.** Matches an answer text against
+  recorded expected values (`must_appear`, `must_not_appear`, `one_of`) and
+  returns `matches`, `does_not_match` or `cannot_tell`. It is a separate result
+  from the run check and is an internal measurement, not a benchmark score.
+- **The hand-back checker, export loader, counts and quote matcher**, moved from
+  the associate repository (`agentculture/associate`) at commit `266dad3`,
+  directory `associate/accuracy/`, into `evidence/accuracy/`, with the shared
+  matcher vectors and the bundled default settings under `evidence/data/`.
+  Standard library only.
+- **`evidence/answer/`**, the answer check library, with the expected-values
+  schema (`evidence/data/expected_values.schema.json`, schema version 1).
+- **`docs/library.md`**, the public library names with their modules, and
+  `tests/test_public_names.py`, which imports every name listed there. The
+  eight functions associate is planned to import are `check_quote`,
+  `parse_source_ref`, `check_handback`, `load_export`, `load_handback_input`,
+  `inspect_export`, `accuracy_result` and `fact_counts`. Changing or removing a
+  listed name is a breaking release.
+- A real `CLAUDE.md` replacing the seed placeholder, and a README that describes
+  the two commands.
+
+### Changed
+
+- `README.md` describes what the package does today instead of the template.
+
+### Notes
+
+- associate does not import this package yet. That is planned work in
+  associate's groundwork spec (a branch link, which will move):
+  <https://github.com/agentculture/associate/blob/clef/accuracy/docs/specs/2026-11-18-associate-graded-measurement-groundwork.md>.
+- Not built: the general evidence trail, rubric and final score of the original
+  build brief (issue #1). The overlap with storybook-cli is not settled.
+
 ## [0.6.1] - 2026-07-20
 
 ### Added
