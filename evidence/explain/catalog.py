@@ -158,7 +158,6 @@ A complete trail does not mean the work is correct.
 
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
-    ("evidence",): _ROOT,
     ("evidence-cli",): _ROOT,
     ("evidence",): _ROOT,
     ("whoami",): _WHOAMI,
