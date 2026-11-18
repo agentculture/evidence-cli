@@ -1,0 +1,114 @@
+# Build Plan — evidence-cli run check and answer check
+
+slug: `evidence-cli-run-check-and-answer-check` · status: `exported` · from frame: `evidence-cli-run-check-and-answer-check`
+
+> evidence-cli reads a finished associate run from its export: it re-checks every fact against the saved results, counts them, writes reviewer flags beside the run, and, as a separately named result, says whether the run's answer matches recorded expected values; associate imports it for its own re-check
+
+## Tasks
+
+### t1 — Move the quote matcher and the counts into evidence/accuracy, and ship the shared vectors in the package
+
+- instruction: Copy matcher.py and counts.py from the associate repository at commit 266dad3 (github.com/agentculture/associate), directory associate/accuracy/ and its tests into evidence/accuracy/ (new package, with `__init__.py`), changing only import paths and docstring references. Copy associate/contract/`matcher_vectors.json` to evidence/data/`matcher_vectors.json` and add a small function that returns its parsed content from the installed package (importlib.resources). Port tests/`test_accuracy_matcher.py` to tests/`test_matcher.py` and the count tests from tests/`test_accuracy_check.py` to tests/`test_counts.py`. Write the tests first and see them fail before the code exists. Files owned: evidence/accuracy/`__init__.py`, matcher.py, counts.py, evidence/data/, tests/`test_matcher.py`, tests/`test_counts.py`. Do not touch evidence/cli/.
+- covers: c18, h13
+- acceptance:
+  - every matcher case in evidence/data/`matcher_vectors.json` passes against evidence.accuracy.matcher.`check_quote`
+  - evidence.accuracy.counts.`fact_counts` and the per-source-kind counts return the same values as the associate versions on the ported tests
+  - the vectors are readable from the installed package through one documented function, and a test reads them that way
+  - the packaged vector file is byte-identical to associate/contract/`matcher_vectors.json` at commit 266dad3
+
+### t2 — Move the hand-back checker, the export loader and the run summary; make settings an explicit input; report unsupported export formats
+
+- instruction: Copy check.py from the associate repository at commit 266dad3 (github.com/agentculture/associate), directory associate/accuracy/ and its tests into evidence/accuracy/check.py, keeping every public function name (`parse_source_ref`, `check_handback`, `load_export`, `load_handback_input`, `inspect_export`, `accuracy_result`) and its results. Port tests/`test_accuracy_check.py` (checker parts), tests/`test_accuracy_replays.py` and tests/`test_accuracy_runs.py` with tests/fixtures/accuracy/. The checker already takes its settings as an argument: add evidence/data/`accuracy_defaults.json` (a copy of associate/contract/accuracy.json at 266dad3 with its version) and a loader that returns it and its version. New behaviour: a constant names the supported walk format versions; an export whose format marker is above the highest supported one yields a result marked unsupported with the version found, and no counts. Write the tests for the new behaviour first and see them fail. Never import associate. Files owned: evidence/accuracy/check.py, evidence/data/`accuracy_defaults.json`, tests/`test_check.py`, tests/`test_replays.py`, tests/`test_runs.py`, tests/fixtures/. Do not touch evidence/cli/.
+- depends on: t1
+- covers: c11, h6, c12, c26, h19
+- acceptance:
+  - every hand-back case in the shared vectors passes against evidence.accuracy.check.`check_handback`
+  - each of the eight public functions is importable from its evidence.accuracy module and the ported tests pass unchanged in what they assert
+  - the default settings loader returns the bundled settings and a version, and `check_handback` gives the same result with them as with the associate file at 266dad3
+  - an export whose format version is above the supported one returns an unsupported result naming the version found, with no counts; an export with no marker is still reported as not applicable
+  - no module under evidence/ imports associate, and the test run leaves every file under tests/fixtures/ unchanged (checked by checksum in a test)
+
+### t3 — Build the run check command module: one export or many, sums, disagreements, flags file
+
+- instruction: Write evidence/cli/`_commands`/check.py exposing register(sub) and the handler, following the pattern of the existing command modules (results through `_output`, failures as CliError, --json). It takes one or more export directories, an optional --settings file, --continue-from, --flags-dir and --no-flags. For each run: counts by kind and by source kind from evidence.accuracy; a list of disagreements between the re-check and the counts in the run's own report.json (both values shown); not applicable for a run with no facts; unsupported for a newer format. Then the sums over applicable runs. Reviewer flags go to a file beside the run: the directory that holds the export directory, in evidence/flags.json, never inside the export directory. If that cannot be written, print the report, say the file was not written, and exit with the environment error code; --flags-dir writes elsewhere and --no-flags skips writing, both exiting 0. The output states which settings were used (file or bundled default with version). Do not register the verb in evidence/cli/`__init__.py`, the explain catalog or learn: another task does that. Test by calling the handler with an argparse namespace. Tests first. Files owned: evidence/cli/`_commands`/check.py, tests/`test_check_command.py`.
+- depends on: t2
+- covers: c13, h8, c14, h9, c29, h22, h7
+- acceptance:
+  - on the fixture exports the per-run counts and the sums equal a hand count written in the test
+  - a fixture whose report.json states a wrong count is listed as a disagreement with both values, and a run with no facts is reported as not applicable and adds nothing to the sums
+  - the flags file is written beside the export directory and a checksum of every file under the export directory is unchanged
+  - with an unwritable location the report is printed, the message says the flags file was not written, and the exit code is the environment error code; --flags-dir and --no-flags exit 0
+  - with no --settings the output names the bundled default settings and their version; with --settings it names the file
+  - two runs on the same inputs print byte-identical output, in text and in --json
+
+### t4 — Build the answer check library and its expected-values schema
+
+- instruction: Write evidence/answer/ (new package): a schema for a task's expected values as data with a `schema_version`, holding items that must appear, items that must not appear, and groups of alternatives where one must appear; each item has a text and a kind (number, identifier or text) and, for text, whether case is folded. A function grade(`answer_text`, expected) returns matches, `does_not_match` or `cannot_tell` with the items found, the items missing, the forbidden items present, the schema version and, for `cannot_tell`, its cause. Matching: text items after the whitespace collapsing used by evidence.accuracy.matcher.normalise; number and identifier items only as whole tokens, so 9 does not match 19 and 0.5 does not match 10.5. `cannot_tell` only for an empty answer text or expected values that name no item. A task file with an unknown key or no `schema_version` is refused with the reason. The function never reads an export and calls no model. Tests first. Files owned: evidence/answer/, evidence/data/`expected_values`.schema.json, tests/`test_answer.py`.
+- depends on: t1
+- covers: c16, h11, c27, h20, c28, h21, c15, h10
+- acceptance:
+  - an answer holding every required item and no forbidden item is matches; one missing a required item, or holding a forbidden one, is `does_not_match`, with the items named
+  - a number or identifier item does not match inside a longer number or identifier, and does match as a whole token next to punctuation
+  - an empty answer or expected values naming no item gives `cannot_tell` with its cause, and nothing else does
+  - a task file with an unknown key or without `schema_version` is refused with a reason, and every result names the schema version
+  - grading the same inputs twice returns equal results, and the module imports nothing outside the standard library and evidence
+
+### t5 — Build the answer check command module
+
+- instruction: Write evidence/cli/`_commands`/grade.py exposing register(sub) and the handler, following the existing command modules. It takes --answer-file (or - for standard input) and --expected (a task's expected-values file), with --json. It prints the result of evidence.answer.grade: matches, does not match or cannot tell, the items found and missing, and the schema version. It takes no export directory and reads no facts file. Exit code 0 for any of the three results; a user error for an unreadable or refused input. Do not register the verb in evidence/cli/`__init__.py`, the explain catalog or learn. Tests first, calling the handler with an argparse namespace. Files owned: evidence/cli/`_commands`/grade.py, tests/`test_grade_command.py`.
+- depends on: t4
+- covers: c15, h10
+- acceptance:
+  - for each fixture task the recorded answer is reported as matches and a hand-written wrong answer as does not match
+  - the answer can be given as a file or on standard input, and the result is identical
+  - a refused expected-values file exits with the user error code and a remediation line
+  - two runs on the same inputs print byte-identical output, in text and in --json
+
+### t6 — Register both commands, document them in explain and learn, and fix the wording that keeps the two results apart
+
+- instruction: Register check and grade in evidence/cli/`__init__.py`, add their entries to evidence/explain/catalog.py and to both forms of evidence/cli/`_commands`/learn.py, as the repository's rule for adding a verb requires; run the rubric gate (uv run teken cli doctor . --strict) and make it pass. Fix the printed wording in both command modules: the run check is described as counts of checked quotes and backed conclusions, the answer check as a match against recorded expected values; each output carries the line that a complete trail does not mean the work is correct; neither uses the words quality score or accuracy. Add tests/`test_wording.py` asserting this on the text and --json output of both commands. Files owned: evidence/cli/`__init__.py`, evidence/explain/catalog.py, evidence/cli/`_commands`/learn.py, tests/`test_wording.py`, and wording-only edits to the two command modules.
+- depends on: t3, t5
+- covers: c17, h12, c8, h3, c1, h18
+- acceptance:
+  - evidence check and evidence grade run from the console entry point, and evidence explain check and evidence explain grade describe them
+  - uv run teken cli doctor . --strict passes
+  - a test fails if either command's output contains quality score or accuracy, or lacks the line that a complete trail does not mean the work is correct
+  - the existing CLI tests still pass
+
+### t7 — End-to-end and boundary tests on the fixture exports
+
+- instruction: Add tests/`test_end_to_end.py` and tests/`test_boundaries.py`. End to end, through the console entry point: every shared vector passes; counts over the fixture exports equal a hand count; a second run prints a byte-identical report; every export file is byte-identical after both commands; each fixture task's recorded answer is graded as matching and a wrong one as not matching. Name the five tests so each can be cited alone. Boundaries: the built package metadata has an empty dependency list; no module under evidence/ imports associate, a network library (socket, urllib, http, ssl) or subprocess; no command prints a final score. Tests only: if a test exposes a defect, report it instead of changing code outside tests/. Files owned: tests/`test_end_to_end.py`, tests/`test_boundaries.py`.
+- depends on: t6
+- covers: c10, h5, c20, h15, c21, h16, c22, h17
+- acceptance:
+  - five separately named end-to-end tests exist, one for each part of the success signal, and pass
+  - a test fails if pyproject.toml gains a runtime dependency or a module under evidence/ imports associate, a network library or subprocess
+  - a test fails if any command's output contains the words final score
+
+### t8 — Rewrite CLAUDE.md from its seed, document the public library names, and release notes for 0.7.0
+
+- instruction: Replace the seed CLAUDE.md with a real project file: what evidence-cli does today (the run check and the answer check, and that they are separate results), the public library names associate imports and the rule that changing one is a breaking release, the no-dependency rule, how to run tests and the rubric gate, and what is not built (the build brief's general trail, rubric and final score; the storybook-cli overlap is not settled). Add docs/library.md listing each public name with its module, and a test that imports every name listed there. Update README.md with the two commands and a link to associate's groundwork spec as the first consumer. Bump the version to 0.7.0 with the repository's version-bump script and write the CHANGELOG entry, which states that before this release the package was the template scaffold. Files owned: CLAUDE.md, README.md, docs/library.md, CHANGELOG.md, pyproject.toml (version only), tests/`test_public_names.py`.
+- depends on: t6
+- covers: c19, h14, c6, h1, c7, h2, c9, h4, c11, h6
+- acceptance:
+  - CLAUDE.md no longer contains the seed's re-init instruction and states the two results, the public names and the no-dependency rule
+  - every name listed in docs/library.md is importable, checked by a test, and the list includes the eight functions associate imports
+  - the version is 0.7.0, the CHANGELOG has its entry, and markdownlint passes on the changed files
+  - README.md names both commands and says that a complete trail does not mean the work is correct
+
+### t9 — Live test with associate as the tester: real worker and cortex runs produce exports, and evidence check and evidence grade are run on them
+
+- instruction: Run by the main agent, not a subagent: it needs the gateway key and live model runs. Use the live run recipe (scratch clone checkout, report mode, reasoning off). Record results in docs/notes; each is one run, not a rate.
+- depends on: t7
+- acceptance:
+  - at least one live associate run on worker and one on cortex each leave an export, and evidence check prints counts for each that equal associate check's counts for the same export
+  - evidence grade is run on each run's answer text against hand-written expected values, and each result is compared with a hand reading of the answer
+  - every disagreement, crash or unsupported result is recorded as found, with the export kept
+
+## Risks
+
+- [unknown_nonblocking] evidence-cli must be released to PyPI before associate can merge the change that imports it; a defect found after release needs a second release
+- [unknown_nonblocking] how associate's TestPyPI pre-release job resolves a first-party dependency has not been examined
+- [unknown_nonblocking] the rubric gate (teken cli doctor --strict) may impose requirements on the two new verbs that this plan has not listed
+- [follow_up] the moved Python tests were written after the code and never seen to fail; tests shown to fail when a rule is removed are not part of this plan
+- [unknown_nonblocking] symlinks inside an export that point outside it were not examined

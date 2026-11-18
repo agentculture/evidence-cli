@@ -21,7 +21,7 @@ def test_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
 def test_no_args_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main([])
     assert rc == 0
-    assert "usage: evidence-cli" in capsys.readouterr().out
+    assert "usage: evidence [" in capsys.readouterr().out
 
 
 def test_unknown_command_errors(capsys: pytest.CaptureFixture[str]) -> None:
@@ -97,7 +97,7 @@ def test_explain_json(capsys: pytest.CaptureFixture[str]) -> None:
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["path"] == ["whoami"]
-    assert "evidence-cli whoami" in payload["markdown"]
+    assert "evidence whoami" in payload["markdown"]
 
 
 def test_explain_unknown_path_errors(capsys: pytest.CaptureFixture[str]) -> None:
@@ -113,3 +113,20 @@ def test_every_catalog_path_resolves(capsys: pytest.CaptureFixture[str]) -> None
         rc = main(["explain", *path])
         assert rc == 0, f"explain {' '.join(path)} failed"
         capsys.readouterr()
+
+
+def test_the_printed_program_name_is_the_installed_command(capsys):
+    """The console script is ``evidence``; usage, hints and docs must say the same."""
+    import tomllib
+    from pathlib import Path
+
+    scripts = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())
+    assert list(scripts["project"]["scripts"]) == ["evidence"]
+    with pytest.raises(SystemExit):
+        main(["check"])
+    assert "run 'evidence check --help'" in capsys.readouterr().err
+    for path in (["evidence"], ["evidence-cli"]):
+        assert main(["explain", *path]) in (None, 0)
+        assert "`evidence check`" in capsys.readouterr().out
+    main(["learn"])
+    assert "evidence-cli check" not in capsys.readouterr().out

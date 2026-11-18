@@ -1,4 +1,4 @@
-"""``evidence-cli learn`` — the learnability affordance.
+"""``evidence learn`` — the learnability affordance.
 
 Prints a structured self-teaching prompt. Must satisfy the agent-first rubric:
 >=200 chars and mention purpose, command map, exit codes, --json, and explain.
@@ -12,23 +12,30 @@ from evidence import __version__
 from evidence.cli._output import emit_result
 
 _TEXT = """\
-evidence-cli — a clonable template for AgentCulture mesh agents.
+evidence-cli — checks the evidence around an agent run, and an answer against expected values.
 
 Purpose
 -------
-Scaffold for a new Culture mesh agent: an agent-first CLI (cited from the teken
-`python-cli` reference), an identity (culture.yaml + CLAUDE.md), the canonical
-guildmaster skill kit under .claude/skills/, and a deploy/CI baseline. Clone it,
-rename the package, and edit culture.yaml to mint a new agent.
+Two separate checks, both deterministic, with no model call and no network call.
+The run check re-reads a run export (the calls a run made, the results it saved,
+the facts it handed back) and counts the facts whose quote is found in the saved
+result they cite. The answer check matches an answer text against recorded
+expected values. Neither result is folded into the other.
 
 Commands
 --------
-  evidence-cli whoami             Identity from culture.yaml.
-  evidence-cli learn              This self-teaching prompt.
-  evidence-cli explain <path>...  Markdown docs for any noun/verb path.
-  evidence-cli overview           Descriptive snapshot of the agent.
-  evidence-cli doctor             Check the agent-identity invariants.
-  evidence-cli cli overview       Describe the CLI surface itself.
+  evidence whoami             Identity from culture.yaml.
+  evidence learn              This self-teaching prompt.
+  evidence explain <path>...  Markdown docs for any noun/verb path.
+  evidence overview           Descriptive snapshot of the agent.
+  evidence doctor             Check the agent-identity invariants.
+  evidence cli overview       Describe the CLI surface itself.
+  evidence check <export>...  Run check: counts of checked quotes and backed
+                                  conclusions for run exports.
+  evidence grade              Answer check: a match against recorded expected
+                                  values (--answer-file, --expected).
+
+Both results carry one line: a complete trail does not mean the work is correct.
 
 Machine-readable output
 -----------------------
@@ -44,7 +51,7 @@ Exit-code policy
 
 More detail
 -----------
-  evidence-cli explain evidence-cli
+  evidence explain evidence
 """
 
 
@@ -52,7 +59,10 @@ def _as_json_payload() -> dict[str, object]:
     return {
         "tool": "evidence-cli",
         "version": __version__,
-        "purpose": "Clonable scaffold for a new AgentCulture mesh agent.",
+        "purpose": (
+            "Checks the evidence around an agent run (quotes found in saved results) and, "
+            "separately, an answer against recorded expected values."
+        ),
         "commands": [
             {"path": ["whoami"], "summary": "Identity probe from culture.yaml."},
             {"path": ["learn"], "summary": "Self-teaching prompt."},
@@ -60,6 +70,14 @@ def _as_json_payload() -> dict[str, object]:
             {"path": ["overview"], "summary": "Descriptive snapshot of the agent."},
             {"path": ["doctor"], "summary": "Check the agent-identity invariants."},
             {"path": ["cli", "overview"], "summary": "Describe the CLI surface."},
+            {
+                "path": ["check"],
+                "summary": "Run check: counts of checked quotes and backed conclusions.",
+            },
+            {
+                "path": ["grade"],
+                "summary": "Answer check: a match against recorded expected values.",
+            },
         ],
         "exit_codes": {
             "0": "success",
@@ -67,7 +85,7 @@ def _as_json_payload() -> dict[str, object]:
             "2": "environment/setup error",
         },
         "json_support": True,
-        "explain_pointer": "evidence-cli explain <path>",
+        "explain_pointer": "evidence explain <path>",
     }
 
 

@@ -1,0 +1,1 @@
+{"schema_version": 1, "must_appear": [{"text": "lib/facts.ts", "kind": "identifier"}], "one_of": [[{"text": "check_quote", "kind": "identifier"}, {"text": "quote checker", "kind": "text", "fold_case": true}]]}
