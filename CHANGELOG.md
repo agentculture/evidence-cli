@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-11-18
+
+### Added
+
+- CI fails a pull request that has any open or confirmed SonarCloud issue (`scripts/sonar-pr-issues.py`, cited from culture-rules); issues marked accepted or false positive pass. The quality gate alone stays green on a code smell.
+
 ## [0.7.1] - 2026-11-18
 
 ### Added

@@ -179,7 +179,9 @@ The markdown config is the repo-local `.markdownlint-cli2.yaml`. Vendored skills
 under `.claude/skills/` are excluded on purpose: do not reformat them, and fix
 findings against them upstream.
 
-SonarCloud fails CI on any new issue: keep functions small (cognitive
+CI fails while the pull request has any SonarCloud issue that is open or
+confirmed (`scripts/sonar-pr-issues.py`, a step in the `test` job); issues
+marked accepted or false positive pass. Keep functions small (cognitive
 complexity 15 or less), avoid string literals repeated three or more times,
 unused variables and nested conditionals. In a regex that must match associate's
 TypeScript matcher, `\d` needs `re.ASCII`.
