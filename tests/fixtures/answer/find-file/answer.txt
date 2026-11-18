@@ -1,0 +1,1 @@
+Facts are checked in lib/facts.ts, which calls check_quote.
