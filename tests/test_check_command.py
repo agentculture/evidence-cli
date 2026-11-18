@@ -279,3 +279,14 @@ def test_register_adds_check_verb():
     cmd.register(sub)
     parsed = parser.parse_args(["check", "x", "y", "--no-flags", "--json"])
     assert parsed.exports == ["x", "y"] and parsed.no_flags and parsed.func is cmd.cmd_check
+
+
+def test_the_text_report_prints_conclusion_counts_per_run_and_in_the_sums(capsys, runs):
+    """Runs A and B hand back no verdicts, so every conclusion count is 0, per run and summed."""
+    code, out, _ = run(capsys, ns([runs["a"], runs["b"]], json=False))
+    assert code == 0
+    lines = [line.strip() for line in out.splitlines() if line.strip().startswith("conclusions")]
+    assert len(lines) == 3
+    assert all(" made 0" in line for line in lines)
+    code, out, _ = run(capsys, ns([runs["a"], runs["b"]]))
+    assert json.loads(out)["sums"]["conclusions"]["made"] == 0

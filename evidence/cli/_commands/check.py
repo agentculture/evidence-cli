@@ -127,7 +127,10 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
     facts = empty_counts()
     by_kind = {kind: empty_counts() for kind in SOURCE_KINDS}
     applicable = [e for e in entries if e["applicable"]]
+    conclusions: dict[str, int] = {}
     for entry in applicable:
+        for key, value in entry["conclusions"].items():
+            conclusions[key] = conclusions.get(key, 0) + value
         _add(facts, entry["facts"])
         for kind in SOURCE_KINDS:
             _add(by_kind[kind], entry["by_source_kind"][kind])
@@ -141,6 +144,7 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "facts": facts,
         "by_source_kind": by_kind,
+        "conclusions": conclusions,
     }
 
 
@@ -192,6 +196,11 @@ def _counts_line(label: str, counts: dict[str, int]) -> str:
     )
 
 
+def _conclusions_line(counts: dict[str, int]) -> str:
+    parts = "  ".join(f"{key} {counts[key]}" for key in sorted(counts))
+    return f"  conclusions  {parts}"
+
+
 def _settings_line(settings: dict[str, Any]) -> str:
     if settings["source"] == "file":
         return f"settings file: {settings['path']} (version {settings['version']})"
@@ -207,6 +216,7 @@ def _render_run(entry: dict[str, Any]) -> list[str]:
     out.append(_counts_line("all", entry["facts"]))
     for kind in SOURCE_KINDS:
         out.append(_counts_line(kind, entry["by_source_kind"][kind]))
+    out.append(_conclusions_line(entry["conclusions"]))
     if not entry["own_report_found"]:
         out.append("  no report.json to compare with")
     for diff in entry["disagreements"]:
@@ -243,6 +253,7 @@ def render(report: dict[str, Any]) -> str:
     out.append(_counts_line("all", report["sums"]["facts"]))
     for kind in SOURCE_KINDS:
         out.append(_counts_line(kind, report["sums"]["by_source_kind"][kind]))
+    out.append(_conclusions_line(report["sums"]["conclusions"]))
     out += [
         "",
         _render_flags_file(report["flags_file"]),

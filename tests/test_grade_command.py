@@ -107,3 +107,13 @@ def test_register_adds_parser_with_options():
     cmd.register(p.add_subparsers())
     a = p.parse_args(["grade", "--answer-file", "-", "--expected", "e.json", "--json"])
     assert a.func is cmd.cmd_grade and a.json and a.answer_file == "-"
+
+
+def test_an_answer_with_every_required_value_and_a_forbidden_one_does_not_match(capsys):
+    """Guards the forbidden-value path: nothing is missing, yet the result is does_not_match."""
+    task = FIXTURES / "count-tests"
+    out = run(capsys, ns(task / "forbidden.txt", task / "expected.json", json_mode=True))
+    payload = json.loads(out.out)
+    assert payload["verdict"] == "does_not_match"
+    assert payload["missing"] == []
+    assert [item["text"] for item in payload["forbidden_present"]] == ["41"]

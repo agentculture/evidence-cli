@@ -12,11 +12,11 @@ from __future__ import annotations
 _ROOT = """\
 # evidence-cli
 
-A clonable template for AgentCulture mesh agents. It carries an agent-first CLI
-(cited from the teken `python-cli` reference), a mesh identity (`culture.yaml` +
-`CLAUDE.md`), the canonical guildmaster skill kit under `.claude/skills/`, and a
-buildable/deployable package baseline. Clone it, rename the package, edit
-`culture.yaml`, and you have a new agent.
+Checks the evidence around an agent run, and an answer against expected values.
+The run check (`check`) re-reads a run export and counts the facts whose quote is
+found in the saved result they cite. The answer check (`grade`) matches an answer
+text against recorded expected values. The two results are separate, and a
+complete trail does not mean the work is correct.
 
 ## Verbs
 

@@ -12,14 +12,15 @@ from evidence import __version__
 from evidence.cli._output import emit_result
 
 _TEXT = """\
-evidence-cli — a clonable template for AgentCulture mesh agents.
+evidence-cli — checks the evidence around an agent run, and an answer against expected values.
 
 Purpose
 -------
-Scaffold for a new Culture mesh agent: an agent-first CLI (cited from the teken
-`python-cli` reference), an identity (culture.yaml + CLAUDE.md), the canonical
-guildmaster skill kit under .claude/skills/, and a deploy/CI baseline. Clone it,
-rename the package, and edit culture.yaml to mint a new agent.
+Two separate checks, both deterministic, with no model call and no network call.
+The run check re-reads a run export (the calls a run made, the results it saved,
+the facts it handed back) and counts the facts whose quote is found in the saved
+result they cite. The answer check matches an answer text against recorded
+expected values. Neither result is folded into the other.
 
 Commands
 --------
@@ -58,7 +59,10 @@ def _as_json_payload() -> dict[str, object]:
     return {
         "tool": "evidence-cli",
         "version": __version__,
-        "purpose": "Clonable scaffold for a new AgentCulture mesh agent.",
+        "purpose": (
+            "Checks the evidence around an agent run (quotes found in saved results) and, "
+            "separately, an answer against recorded expected values."
+        ),
         "commands": [
             {"path": ["whoami"], "summary": "Identity probe from culture.yaml."},
             {"path": ["learn"], "summary": "Self-teaching prompt."},

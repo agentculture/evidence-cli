@@ -1,0 +1,1 @@
+The suite has 42 tests; an earlier count of 41 was wrong.

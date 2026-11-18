@@ -73,7 +73,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     parser = _CliArgumentParser(
         prog="evidence-cli",
-        description="evidence-cli — a clonable template for AgentCulture mesh agents.",
+        description=(
+            "evidence-cli — checks the evidence around an agent run, "
+            "and an answer against expected values."
+        ),
     )
     parser.add_argument(
         "--version",
@@ -92,9 +95,6 @@ def _build_parser() -> argparse.ArgumentParser:
     _cli_group.register(sub)
     _check_cmd.register(sub)
     _grade_cmd.register(sub)
-    # Register your own noun groups here:
-    #   from evidence.cli._commands import my_noun as _my_noun_group
-    #   _my_noun_group.register(sub)
 
     return parser
 
