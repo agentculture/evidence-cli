@@ -2,9 +2,9 @@
   "slug": "evidence-cli-run-check-and-answer-check",
   "title": "evidence-cli run check and answer check",
   "schema_version": 6,
-  "status": "drafting",
+  "status": "exported",
   "created": "2026-11-18T10:42:31Z",
-  "updated": "2026-11-18T10:42:58Z",
+  "updated": "2026-11-18T11:05:41Z",
   "claims": [
     {
       "id": "c1",
@@ -16,7 +16,7 @@
         {
           "id": "h18",
           "text": "both commands exist and associate's suite passes importing them",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -54,7 +54,7 @@
       "kind": "decision",
       "text": "the answer check and the run check are two commands of one package, evidence check and evidence grade, not a separate tool",
       "origin": "user",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [],
       "hard_questions": [],
       "links": [],
@@ -84,12 +84,12 @@
       "kind": "audience",
       "text": "associate, which imports the re-check as a library and calls the answer check from its measurement runner; an operator or reviewer checking one export or many from the command line",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h1",
           "text": "associate's test suite passes using only names this spec lists as public",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -103,12 +103,12 @@
       "kind": "before_state",
       "text": "evidence-cli is the template scaffold with no domain code; the only re-check of an associate run lives inside associate, and nothing anywhere marks a run's answer right or wrong",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h2",
           "text": "git ls-files evidence at origin/main lists only scaffold modules",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -122,12 +122,12 @@
       "kind": "after_state",
       "text": "evidence check reads one export or many and prints counts per run and summed, each disagreement with the harness's own counts, and reviewer flags, and writes the flags to a file beside the run without touching the run's files; evidence grade takes an answer text and a task's expected values and returns matches, does not match or cannot tell, citing the rule that decided; the same code is importable, and associate uses it in place of its own",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h3",
           "text": "both commands run on the committed fixture exports and their output is identical on a second run",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -141,12 +141,12 @@
       "kind": "why_it_matters",
       "text": "one place holds the check, so associate gets leaner and every consumer gets the same fixes; and it gives the planned comparison a grader that is not the harness under test",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h4",
           "text": "associate's groundwork spec names evidence-cli as its grader and re-check",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -160,12 +160,12 @@
       "kind": "success_signal",
       "text": "100% of the shared matcher and hand-back vectors pass in evidence-cli; counts over the fixture exports equal a hand count; a second run prints a byte-identical report; every file in the export is byte-identical after both commands; and for every fixture task the recorded answer is graded as matching and a hand-written wrong answer as not matching",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h5",
           "text": "each of the five checks is a named test in the evidence-cli suite",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -179,12 +179,12 @@
       "kind": "requirement",
       "text": "the matcher, the checker, the counts, the export loader and the run-result summary move from associate/accuracy into evidence-cli with their tests, keeping function names and results; the public names are listed in the documentation and a change to any of them is a breaking release",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h6",
           "text": "every function associate imports today exists under the documented name and returns the same result on the saved test exports",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -198,12 +198,12 @@
       "kind": "requirement",
       "text": "the checker's settings (source kinds, the reason-to-check mapping, the minimum quote length) are an explicit input; the command accepts a settings file and otherwise uses a bundled default that it names in its output",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h7",
           "text": "running evidence check with no settings file prints which default settings it used and their version",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -217,12 +217,12 @@
       "kind": "requirement",
       "text": "evidence check reports, per run and summed, the counts by kind and by source kind, and lists each place its own re-check disagrees with the counts the harness wrote; a run with no facts is reported as not applicable, not as zero",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h8",
           "text": "on a fixture whose report.json was edited to a wrong count, the command names that count as a disagreement",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -236,12 +236,12 @@
       "kind": "requirement",
       "text": "reviewer flags are written to a file beside the run, in a location the run did not write, and no file of the export is modified or created inside it",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h9",
           "text": "a checksum of every file under the export directory is unchanged after the command",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -255,12 +255,12 @@
       "kind": "requirement",
       "text": "evidence grade takes the answer text as an explicit input, with the task's expected values, and returns matches, does not match or cannot tell, with the expected items found and missing; it never reads the facts list to decide, and calls no model",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h10",
           "text": "the result is unchanged when the export's facts.json is absent, and a grade is reproduced exactly on a second run",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -274,12 +274,12 @@
       "kind": "requirement",
       "text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives, compared after the same normalisation the matcher uses; a result names the schema version it was graded under",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h11",
           "text": "two results are reported as comparable only when their schema versions are equal, and a task file with an unknown key is refused",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -293,12 +293,12 @@
       "kind": "requirement",
       "text": "the words printed keep the two results apart: the run check is described as counts of checked quotes and backed conclusions, the answer check as a match against recorded expected values, and neither as quality, correctness of the work, or accuracy; each output carries the line that a complete trail does not mean the work is correct",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h12",
           "text": "a test fails if either command's output contains the words quality score or accuracy",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -312,12 +312,12 @@
       "kind": "requirement",
       "text": "the shared test vectors ship inside the evidence-cli package, so associate can compare its own copy with the installed one",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h13",
           "text": "associate's copy and the packaged copy are compared by a test in associate and are equal at the pinned versions",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -331,12 +331,12 @@
       "kind": "requirement",
       "text": "CLAUDE.md is re-initialised from its seed into a real project file that states the two results, the public library names and the no-dependency rule",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h14",
           "text": "the file no longer contains the seed's re-init instruction",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -350,12 +350,12 @@
       "kind": "boundary",
       "text": "no runtime dependency, no model call and no network access; the same inputs give the same output",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h15",
           "text": "the package's dependencies list is empty and no module imports a network library",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -369,12 +369,12 @@
       "kind": "boundary",
       "text": "evidence-cli never imports associate, and never edits a run; the TypeScript checker stays in associate's extension",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h16",
           "text": "no file under evidence/ imports associate, and the fixture checksums are unchanged by the test suite",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -388,12 +388,12 @@
       "kind": "boundary",
       "text": "this work does not build the general trail of the build brief (request, spec, plan, code, validations), its rubric or a final score, and does not settle the overlap with storybook-cli",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h17",
           "text": "no command added here prints a final score",
-          "status": "proposed",
+          "status": "confirmed",
           "instruction": ""
         }
       ],
@@ -407,7 +407,7 @@
       "kind": "non_goal",
       "text": "computing the decider score, grading with a model, or grading runs of harnesses other than associate",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [],
       "hard_questions": [],
       "links": [],
@@ -419,7 +419,7 @@
       "kind": "assumption",
       "text": "associate keeps its associate check command as a thin wrapper over the imported code, so its output and its documented interface do not change",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [],
       "hard_questions": [],
       "links": [],
@@ -431,8 +431,84 @@
       "kind": "assumption",
       "text": "evidence-cli is released to PyPI before the associate change that imports it is merged, and associate pins the released version as its floor",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c26",
+      "kind": "requirement",
+      "text": "the run check states which export formats it supports; an export with a newer format than it knows is reported as unsupported with the version it found, never checked with older rules",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h19",
+          "text": "a fixture whose format marker says a version above the supported one produces an unsupported result and no counts",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c27",
+      "kind": "requirement",
+      "text": "an expected item that is a number or an identifier matches only as a whole token, so 9 does not match 19 and 0.5 does not match 10.5; free-text items match after whitespace is collapsed, with case kept or folded as the item says",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h20",
+          "text": "for each fixture task, an answer holding a longer number that contains the expected one is graded as not matching",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c28",
+      "kind": "requirement",
+      "text": "cannot tell is returned only for stated causes (an empty answer text, or expected values that name no item), each named in the result; an answer that simply lacks an expected item is does not match",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h21",
+          "text": "an empty answer gives cannot tell with its cause, and an answer missing one required item gives does not match",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c29",
+      "kind": "requirement",
+      "text": "when the flags file cannot be written the command says so and exits with an error code, and an option sends the file to a named directory or suppresses writing; the printed report is the same either way",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h22",
+          "text": "run on a read-only location, the command exits non-zero with a remediation line and still prints the counts",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
       "hard_questions": [],
       "links": [],
       "instruction": "",
@@ -453,6 +529,15 @@
       "id": "v2",
       "text": "whether the answer text for a run of the older harness is its final reply or its statements file; the caller supplies the text, so this is decided in associate's runner",
       "kind": "unknown_nonblocking",
+      "claim_id": null,
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v3",
+      "text": "the moved Python tests were written after the code and never seen to fail (lapse l3 of the accuracy-method work); whether to add tests shown to fail when a rule is removed is not decided here",
+      "kind": "follow_up",
       "claim_id": null,
       "resolved": false,
       "resolution": "",
@@ -483,6 +568,49 @@
       "surface": "associate/accuracy/ at associate main 266dad3 (matcher.py, check.py, counts.py, 1,079 lines) and its importers",
       "finding": "Public functions: check_quote (matcher.py:56), parse_source_ref, check_handback, load_export, load_handback_input, inspect_export, accuracy_result (check.py:69,550,666,763,811,883), fact_counts (counts.py:32). check_handback takes the accuracy settings as an argument (check.py:7, 550) and reads no associate file. Importers in associate: harness/pi.py:88, harness/stub.py:21, cli/_commands/check.py:15-16, and six test files. The code is standard library only (check.py:5).",
       "seeds": []
+    },
+    {
+      "id": "s5",
+      "surface": "challenge pass / upgrade-path lens: associate/accuracy/check.py:681-685, 804",
+      "finding": "The loader reads the walk's format version and treats anything below 2 as not applicable (check.py:804); a version above 2 passes that test and would be checked with today's rules. Once the checker lives in another package than the extension that writes exports, the two can be at different versions.",
+      "seeds": [
+        "c26"
+      ]
+    },
+    {
+      "id": "s6",
+      "surface": "challenge pass / unstated-assumptions lens: associate/accuracy/matcher.py:37-40",
+      "finding": "The matcher's normalise strips read line stamps and collapses whitespace; case and punctuation stay, and matching is plain substring. That is right for a quote copied from a source, but for an answer check a short expected value such as a number would match inside a longer one. The draft said the answer check uses the same normalisation without saying this.",
+      "seeds": [
+        "c27",
+        "c28"
+      ]
+    },
+    {
+      "id": "s7",
+      "surface": "challenge pass / failure-mode lens: evidence-cli issue #3 (flags written beside the result)",
+      "finding": "Exports may sit in a directory the caller cannot write (another user's scratch space, a read-only mount); the draft did not say what happens then, and a silent skip would leave a reviewer believing there were no flags.",
+      "seeds": [
+        "c29"
+      ]
+    },
+    {
+      "id": "s8",
+      "surface": "challenge pass / security lens: associate/accuracy/check.py load_export (lines 666-700)",
+      "finding": "The loader opens only results/wN.txt names matched by a pattern and only when the resolved path stays inside the export directory; this behaviour and its tests move unchanged. Clean for this spec. Not examined: symlinks inside an export that point outside it.",
+      "seeds": []
+    },
+    {
+      "id": "s9",
+      "surface": "challenge pass / portability lens: associate tests/fixtures/accuracy",
+      "finding": "A search of the six fixture files for home or temporary directory paths found none, so they can be copied into evidence-cli without tripping its portability check. Not examined: the export directories other tests build at run time.",
+      "seeds": []
+    },
+    {
+      "id": "s10",
+      "surface": "challenge pass / operations lens: release order between two repositories",
+      "finding": "A fix to the checker now needs an evidence-cli release and then a floor bump in associate: two pull requests where there was one. Accepted by the operator's import decision; recorded so the cost is visible. Not examined: how associate's TestPyPI pre-release job resolves the dependency.",
+      "seeds": []
     }
   ],
   "lapses": [
@@ -495,7 +623,7 @@
         "c4"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ],
   "obligations": []
