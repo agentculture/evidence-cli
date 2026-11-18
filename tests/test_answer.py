@@ -36,7 +36,8 @@ def test_all_required_and_no_forbidden_matches():
     r = grade("The count is 9 in lib/facts.ts", exp(must_appear=[num("9"), ident("lib/facts.ts")]))
     assert r["verdict"] == "matches"
     assert [i["text"] for i in r["found"]] == ["9", "lib/facts.ts"]
-    assert r["missing"] == [] and r["forbidden_present"] == []
+    assert r["missing"] == []
+    assert r["forbidden_present"] == []
 
 
 def test_missing_required_is_does_not_match_and_named():

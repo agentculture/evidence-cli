@@ -32,7 +32,8 @@ def test_claude_md_is_no_longer_a_seed() -> None:
 
 def test_claude_md_states_the_two_results_names_and_dependency_rule() -> None:
     text = _read("CLAUDE.md")
-    assert "evidence check" in text and "evidence grade" in text
+    assert "evidence check" in text
+    assert "evidence grade" in text
     assert "docs/library.md" in text
     assert "breaking release" in text
     assert "dependencies = []" in text
@@ -46,6 +47,7 @@ def test_claude_md_has_no_home_paths_or_checkpoint_ids() -> None:
 
 def test_readme_names_both_commands_and_the_trail_line() -> None:
     text = _read("README.md")
-    assert "evidence check" in text and "evidence grade" in text
+    assert "evidence check" in text
+    assert "evidence grade" in text
     assert "a complete trail does not mean the work is correct" in text
     assert "groundwork" in text

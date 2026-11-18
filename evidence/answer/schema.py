@@ -8,7 +8,7 @@ SCHEMA_VERSION = 1
 KINDS = ("number", "identifier", "text")
 _TOP_KEYS = {"schema_version", "must_appear", "must_not_appear", "one_of"}
 _ITEM_KEYS = {"text", "kind", "fold_case"}
-_NUMBER = re.compile(r"-?[0-9]+(?:[.,][0-9]+)*", re.ASCII)
+_NUMBER = re.compile(r"-?\d+(?:[.,]\d+)*", re.ASCII)
 _SPACE = re.compile(r"\s")
 
 

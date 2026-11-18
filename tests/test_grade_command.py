@@ -69,8 +69,9 @@ def test_stdin_and_file_give_identical_output(capsys, monkeypatch, json_mode):
 def test_refused_expected_file_is_user_error_with_remediation(tmp_path, body):
     bad = tmp_path / "e.json"
     bad.write_text(body)
+    args = ns(FIXTURES / TASKS[0] / "answer.txt", bad)
     with pytest.raises(CliError) as info:
-        cmd.cmd_grade(ns(FIXTURES / TASKS[0] / "answer.txt", bad))
+        cmd.cmd_grade(args)
     assert info.value.code == EXIT_USER_ERROR
     assert info.value.remediation
 
@@ -81,9 +82,11 @@ def test_unreadable_inputs_are_user_errors(tmp_path):
         (tmp_path / "none", good / "expected.json"),
         (good / "answer.txt", tmp_path / "none"),
     ):
+        args = ns(answer, exp)
         with pytest.raises(CliError) as info:
-            cmd.cmd_grade(ns(answer, exp))
-        assert info.value.code == EXIT_USER_ERROR and info.value.remediation
+            cmd.cmd_grade(args)
+        assert info.value.code == EXIT_USER_ERROR
+        assert info.value.remediation
 
 
 @pytest.mark.parametrize("json_mode", [False, True])
@@ -91,14 +94,18 @@ def test_unreadable_inputs_are_user_errors(tmp_path):
 def test_two_runs_are_byte_identical(capsys, json_mode, name):
     exp = FIXTURES / "find-file" / "expected.json"
     args = ns(FIXTURES / "find-file" / name, exp, json_mode)
-    assert run(capsys, args).out == run(capsys, args).out
+    first = run(capsys, args).out
+    second = run(capsys, args).out
+    assert first == second
 
 
 def test_text_lists_found_missing_and_schema_version(capsys):
     exp = FIXTURES / "stack-version" / "expected.json"
     out = run(capsys, ns(FIXTURES / "stack-version" / "wrong.txt", exp)).out
     assert "schema version: 1" in out
-    assert "found:" in out and "missing:" in out and "forbidden present:" in out
+    assert "found:" in out
+    assert "missing:" in out
+    assert "forbidden present:" in out
     assert "Deno" in out
 
 
@@ -106,7 +113,9 @@ def test_register_adds_parser_with_options():
     p = argparse.ArgumentParser()
     cmd.register(p.add_subparsers())
     a = p.parse_args(["grade", "--answer-file", "-", "--expected", "e.json", "--json"])
-    assert a.func is cmd.cmd_grade and a.json and a.answer_file == "-"
+    assert a.func is cmd.cmd_grade
+    assert a.json
+    assert a.answer_file == "-"
 
 
 def test_an_answer_with_every_required_value_and_a_forbidden_one_does_not_match(capsys):

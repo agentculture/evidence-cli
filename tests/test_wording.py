@@ -39,7 +39,8 @@ def export(tmp_path):
 def _check(capsys, tmp_path, export, json_mode):
     argv = ["check", str(export), "--no-flags"] + (["--json"] if json_mode else [])
     rc, out, err = _call(capsys, argv)
-    assert rc == 0 and err == ""
+    assert rc == 0
+    assert err == ""
     return _mask(out, tmp_path)
 
 
@@ -53,7 +54,8 @@ def _grade(capsys, task, json_mode, wrong=False):
         str(FIXTURES / task / "expected.json"),
     ]
     rc, out, err = _call(capsys, argv + (["--json"] if json_mode else []))
-    assert rc == 0 and err == ""
+    assert rc == 0
+    assert err == ""
     return out
 
 
@@ -88,7 +90,8 @@ def test_grade_text_wording(capsys):
 def test_grade_json_wording(capsys):
     text = _grade(capsys, _task(), True)
     data = json.loads(text)
-    assert data["note"] == NOTE and data["verdict"] == "matches"
+    assert data["note"] == NOTE
+    assert data["verdict"] == "matches"
     _assert_clean(text)
 
 
@@ -107,7 +110,8 @@ def test_grade_exit_zero_for_each_result(capsys, tmp_path):
         "--json",
     ]
     rc, out, _ = _call(capsys, argv)
-    assert rc == 0 and json.loads(out)["verdict"] == "cannot_tell"
+    assert rc == 0
+    assert json.loads(out)["verdict"] == "cannot_tell"
 
 
 def test_grade_refused_expected_file_is_exit_one_on_stderr(capsys, tmp_path):
@@ -115,13 +119,16 @@ def test_grade_refused_expected_file_is_exit_one_on_stderr(capsys, tmp_path):
     bad.write_text(json.dumps({"schema_version": 99}), encoding="utf-8")
     answer = FIXTURES / _task() / "answer.txt"
     rc, out, err = _call(capsys, ["grade", "--answer-file", str(answer), "--expected", str(bad)])
-    assert rc == 1 and out == "" and "refused" in err
+    assert rc == 1
+    assert out == ""
+    assert "refused" in err
 
 
 @pytest.mark.parametrize("path", [["check"], ["grade"]])
 def test_explain_describes_each_command(capsys, path):
     rc, out, err = _call(capsys, ["explain", *path])
-    assert rc == 0 and err == ""
+    assert rc == 0
+    assert err == ""
     assert f"evidence-cli {path[0]}" in out
     assert NOTE in out.lower()
     _assert_clean(out)
@@ -131,6 +138,8 @@ def test_learn_lists_both_commands(capsys):
     _, text, _ = _call(capsys, ["learn"])
     _, js, _ = _call(capsys, ["learn", "--json"])
     paths = [c["path"] for c in json.loads(js)["commands"]]
-    assert ["check"] in paths and ["grade"] in paths
-    assert "evidence-cli check" in text and "evidence-cli grade" in text
+    assert ["check"] in paths
+    assert ["grade"] in paths
+    assert "evidence-cli check" in text
+    assert "evidence-cli grade" in text
     _assert_clean(text + js)

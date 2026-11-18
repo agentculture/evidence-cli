@@ -300,8 +300,9 @@ def test_a_saved_result_path_outside_results_is_never_read(tmp_path):
 
 
 def test_bad_inputs_raise_an_export_error_not_another_exception(tmp_path):
+    missing = tmp_path / "missing"
     with pytest.raises(check_mod.ExportError):
-        check_mod.inspect_export(tmp_path / "missing", ACCURACY)
+        check_mod.inspect_export(missing, ACCURACY)
     export = write_export(tmp_path, [], {}, name="bad")
     (export / "facts.json").write_text("{not json", encoding="utf-8")
     with pytest.raises(check_mod.ExportError, match="facts.json"):

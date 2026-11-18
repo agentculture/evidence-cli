@@ -190,7 +190,8 @@ def test_a_second_run_prints_a_byte_identical_report(two_runs, json_mode):
     argv = ["check", *map(str, two_runs)] + (["--json"] if json_mode else [])
     first, second = run_in_process(*argv), run_in_process(*argv)
     assert first.returncode == second.returncode == 0
-    assert first.stdout and first.stdout == second.stdout
+    assert first.stdout
+    assert first.stdout == second.stdout
     assert first.stderr == second.stderr
 
 
@@ -199,7 +200,8 @@ def test_a_second_run_prints_a_byte_identical_grade(task):
     argv = ["grade", "--answer-file", str(ANSWER_FIXTURES / task / "answer.txt")]
     argv += ["--expected", str(ANSWER_FIXTURES / task / "expected.json"), "--json"]
     first, second = run_in_process(*argv), run_in_process(*argv)
-    assert first.stdout and first.stdout == second.stdout
+    assert first.stdout
+    assert first.stdout == second.stdout
 
 
 # --- 4. no export file changes -----------------------------------------------------

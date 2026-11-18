@@ -142,7 +142,8 @@ def test_per_run_counts_and_sums_equal_hand_count(capsys, runs):
         "not_applicable": 0,
         "unsupported": 0,
     }
-    assert a["disagreements"] == [] and b["disagreements"] == []
+    assert a["disagreements"] == []
+    assert b["disagreements"] == []
 
 
 def test_wrong_report_count_is_a_disagreement_with_both_values(capsys, tmp_path):
@@ -154,14 +155,17 @@ def test_wrong_report_count_is_a_disagreement_with_both_values(capsys, tmp_path)
         {"key": "facts.refused", "report_json": 0, "recheck": 1},
     ]
     code, text, _ = run(capsys, ns([export], json=False))
-    assert "facts.passed" in text and "report.json 2" in text and "re-check 1" in text
+    assert "facts.passed" in text
+    assert "report.json 2" in text
+    assert "re-check 1" in text
 
 
 def test_no_facts_run_is_not_applicable_and_adds_nothing(capsys, runs):
     _, out, _ = run(capsys, ns([runs["a"], runs["c"]]))
     data = json.loads(out)
     c = next(r for r in data["runs"] if r["export"] == str(runs["c"]))
-    assert c["applicable"] is False and c["not_applicable_reason"]
+    assert c["applicable"] is False
+    assert c["not_applicable_reason"]
     assert "facts" not in c
     assert data["sums"]["facts"]["made"] == 3
     assert data["sums"]["runs"] == {
@@ -176,7 +180,9 @@ def test_newer_walk_format_is_unsupported_and_adds_nothing(capsys, runs):
     _, out, _ = run(capsys, ns([runs["a"], runs["d"]]))
     data = json.loads(out)
     d = next(r for r in data["runs"] if r["export"] == str(runs["d"]))
-    assert d["unsupported"] is True and d["walk_format"] == 99 and d["applicable"] is False
+    assert d["unsupported"] is True
+    assert d["walk_format"] == 99
+    assert d["applicable"] is False
     assert data["sums"]["facts"]["made"] == 3
     assert data["sums"]["runs"]["unsupported"] == 1
     _, text, _ = run(capsys, ns([runs["d"]], json=False))
@@ -255,21 +261,25 @@ def test_two_runs_print_identical_output(capsys, runs, json_mode):
 def test_text_never_says_accuracy_or_quality_score(capsys, runs):
     _, text, _ = run(capsys, ns([runs["a"], runs["c"], runs["d"]], json=False, no_flags=True))
     text = text.replace(str(runs["a"].parent), "<runs>")  # the pytest temp path names this test
-    assert "accuracy" not in text.lower() and "quality score" not in text.lower()
+    assert "accuracy" not in text.lower()
+    assert "quality score" not in text.lower()
     assert "quote found" in text
 
 
 def test_bad_inputs_are_user_errors(runs, tmp_path):
+    missing_args = ns([tmp_path / "missing"])
     with pytest.raises(CliError) as err:
-        cmd.cmd_check(ns([tmp_path / "missing"]))
+        cmd.cmd_check(missing_args)
     assert err.value.code == EXIT_USER_ERROR
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")
+    bad_args = ns([runs["a"]], settings=str(bad))
     with pytest.raises(CliError) as err:
-        cmd.cmd_check(ns([runs["a"]], settings=str(bad)))
+        cmd.cmd_check(bad_args)
     assert err.value.code == EXIT_USER_ERROR
+    nope_args = ns([runs["a"]], settings=str(tmp_path / "nope.json"))
     with pytest.raises(CliError) as err:
-        cmd.cmd_check(ns([runs["a"]], settings=str(tmp_path / "nope.json")))
+        cmd.cmd_check(nope_args)
     assert err.value.code == EXIT_USER_ERROR
 
 
@@ -278,7 +288,9 @@ def test_register_adds_check_verb():
     sub = parser.add_subparsers()
     cmd.register(sub)
     parsed = parser.parse_args(["check", "x", "y", "--no-flags", "--json"])
-    assert parsed.exports == ["x", "y"] and parsed.no_flags and parsed.func is cmd.cmd_check
+    assert parsed.exports == ["x", "y"]
+    assert parsed.no_flags
+    assert parsed.func is cmd.cmd_check
 
 
 def test_conclusions_are_shown_as_stated_and_as_backed_or_refused(capsys, tmp_path):
