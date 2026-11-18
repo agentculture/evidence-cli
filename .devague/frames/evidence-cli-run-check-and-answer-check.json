@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-18T10:42:31Z",
-  "updated": "2026-11-18T15:42:41Z",
+  "updated": "2026-11-18T15:52:27Z",
   "claims": [
     {
       "id": "c1",
@@ -627,6 +627,50 @@
       "skipped_check": "checking the origin of each decision claim before capture",
       "refs": [
         "c4"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l2",
+      "code": "assumption-for-measurement",
+      "what": "I wrote in the PR description and changelog that links out of an export are not followed, after guarding only the export's own files; child and continued runs are read from wherever the walk or the operator names. A code review found it; the wording was corrected before merge.",
+      "skipped_check": "reading every path the loader opens, not only the ones I had just changed",
+      "refs": [
+        "PR 4 code review finding 1"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l3",
+      "code": "control-absent",
+      "what": "The backed-conclusions count I added after the live test counted every accepted conclusion as backed, including ones the run left open. I had tested it only on runs whose conclusions were all stated as supported. A code review found it; fixed before merge.",
+      "skipped_check": "a fixture with a conclusion left open",
+      "refs": [
+        "PR 4 code review finding 6"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l4",
+      "code": "control-absent",
+      "what": "Eleven of the task agents' tests were reported as seen failing only as a whole-file collection error before the module existed, not each on its own assertion; I merged on that. Later mutation checks by the t7 agent covered some of them, not all.",
+      "skipped_check": "a per-test failing run or a mutation for each acceptance test",
+      "refs": [
+        "task reports t1, t3, t4, t5"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l5",
+      "code": "n-below-claim",
+      "what": "The live test compared the run check with associate check on three exports only, all single runs with no child, no continued run and walk format 2; the obligation asks for every saved test export.",
+      "skipped_check": "a side-by-side run over every saved export in associate's fixtures",
+      "refs": [
+        "obligation o1"
       ],
       "origin": "llm",
       "status": "approved"

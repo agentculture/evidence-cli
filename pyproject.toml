@@ -1,6 +1,6 @@
 [project]
 name = "evidence-cli"
-version = "0.7.0"
+version = "0.7.1"
 description = "Agent and CLI that documents the evidence trail behind a piece of work — the request, the spec, the plan, the docs and code, and the validations — then grades that evidence across parameters and issues a final score."
 readme = "README.md"
 license = "Apache-2.0"

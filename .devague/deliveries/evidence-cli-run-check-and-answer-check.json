@@ -1,0 +1,519 @@
+{
+  "plan_slug": "evidence-cli-run-check-and-answer-check",
+  "schema_version": 2,
+  "created": "2026-11-18T15:46:15Z",
+  "updated": "2026-11-18T15:52:27Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "The moved checker was changed to refuse export files linked from outside the export, although the plan said to copy it keeping its results",
+      "task_ref": "t2",
+      "reason": "the t7 boundary test found facts.json followed a link out of the export; the operator said on 2026-11-18 to fix it in PR 4",
+      "affects": [],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 21
+    },
+    {
+      "id": "d2",
+      "what": "The printed program name was changed from evidence-cli to evidence across usage, hints, learn and explain; no task covered it",
+      "task_ref": "t6",
+      "reason": "the installed command is evidence; the operator said on 2026-11-18 to fix the name in PR 4",
+      "affects": [],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 22
+    },
+    {
+      "id": "d3",
+      "what": "Fourteen code-review findings were fixed on the PR after the waves, changing eleven behaviours of the moved checker and the answer check's text comparison; I started the fixes before asking",
+      "task_ref": "t2",
+      "reason": "the operator ran a code review on PR 4; every finding reproduced; spec claim c16 was amended and confirmed afterwards",
+      "affects": [],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "needs-follow-up",
+      "seq": 23
+    },
+    {
+      "id": "d4",
+      "what": "Task t5 was started before its wave (it depended only on t4) and was allowed to create tests/fixtures/answer/, outside its owned files; that collided with t2's fixture checksum test, which I rescoped after the merge",
+      "task_ref": "t5",
+      "reason": "to use waiting time while t2 ran; t5's first criterion needed fixture tasks that did not exist",
+      "affects": [],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 24
+    },
+    {
+      "id": "d5",
+      "what": "After the waves I changed code myself, outside any task: conclusion counts in the text report, the backed and refused counts found by the live test, template text in learn and explain, a forbidden-value fixture, and SonarCloud fixes by a further agent",
+      "task_ref": "t6",
+      "reason": "gaps the task agents reported in their own hand-backs, the live test's first finding, and 33 SonarCloud issues",
+      "affects": [],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 25
+    },
+    {
+      "id": "d6",
+      "what": "The live test ran before task t9 was confirmed, and its third task (a review of the new code) was added to my first description of it",
+      "task_ref": "t9",
+      "reason": "the operator asked for associate as live tester on worker and cortex; I started the runs while the last build tasks were in progress; the operator confirmed t9 afterwards",
+      "affects": [],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 26
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "obligation_ref": "o1",
+      "test_ref": "tests/test_check.py::test_each_public_function_is_importable_from_its_module + tests/test_public_names.py::test_the_eight_names_associate_imports_are_listed",
+      "behavior_text": "asserts the eight names import from their documented modules and are listed in docs/library.md",
+      "contract_text": "each name associate imports is importable under its documented path",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main. PARTIAL: the second half of the obligation (the same result as the associate version on every saved test export) has no side-by-side test; it rests on the ported replay tests and on three live exports where the counts equalled associate check's",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 1
+    },
+    {
+      "id": "e2",
+      "obligation_ref": "o1",
+      "test_ref": "docs/notes/2026-11-18-live-test.md (three live exports, counts compared with associate check by script)",
+      "behavior_text": "evidence check and associate check printed the same fact counts on three live exports",
+      "contract_text": "returns the result the associate version returned",
+      "evidence_type": "observation",
+      "strength": "fidelity",
+      "strength_basis": "one comparison on three exports made on 2026-11-18 at branch commit 024c92b, before eleven behaviour changes from the code review; the fact counts were re-run after those changes and were unchanged",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 2
+    },
+    {
+      "id": "e3",
+      "obligation_ref": "o2",
+      "test_ref": "tests/test_matcher.py::test_vector + tests/test_check.py::test_python_checker_reproduces_every_handback_vector + tests/test_end_to_end.py::test_every_shared_vector_passes_through_the_entry_point_handback",
+      "behavior_text": "asserts every matcher case and every hand-back case in the shared vectors returns the expected verdict, in the library and through the entry point",
+      "contract_text": "the moved matcher and checker return the expected verdict on every shared vector",
+      "evidence_type": "automated",
+      "strength": "sensitivity",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main; the task agent saw this test fail under a temporary mutation of the code it guards",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 3
+    },
+    {
+      "id": "e4",
+      "obligation_ref": "o3",
+      "test_ref": "tests/test_check_command.py::test_settings_named_in_output",
+      "behavior_text": "asserts the output names the bundled default and its version with no settings file, and names the file when one is given",
+      "contract_text": "the output states which settings were used",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 4
+    },
+    {
+      "id": "e5",
+      "obligation_ref": "o4",
+      "test_ref": "tests/test_check_command.py::test_per_run_counts_and_sums_equal_hand_count + tests/test_end_to_end.py::test_counts_over_the_fixture_exports_equal_a_hand_count",
+      "behavior_text": "asserts per-run counts by kind and source kind and their sums equal literals counted by hand",
+      "contract_text": "counts for each run and their sum equal a hand count",
+      "evidence_type": "automated",
+      "strength": "sensitivity",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main; the task agent saw this test fail under a temporary mutation of the code it guards",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 5
+    },
+    {
+      "id": "e6",
+      "obligation_ref": "o5",
+      "test_ref": "tests/test_check_command.py::test_wrong_report_count_is_a_disagreement_with_both_values",
+      "behavior_text": "asserts a report.json with a wrong count is listed with both values",
+      "contract_text": "a differing count is listed as a disagreement with both values",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 6
+    },
+    {
+      "id": "e7",
+      "obligation_ref": "o6",
+      "test_ref": "tests/test_check_command.py::test_no_facts_run_is_not_applicable_and_adds_nothing + tests/test_check.py::test_an_old_export_is_read_and_its_facts_are_not_applicable",
+      "behavior_text": "asserts a run with no facts file, and an old walk, are not applicable and add nothing to the sums",
+      "contract_text": "a run with no facts is not applicable and adds nothing",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 7
+    },
+    {
+      "id": "e8",
+      "obligation_ref": "o7",
+      "test_ref": "tests/test_end_to_end.py::test_the_flags_file_holds_a_reviewer_flag_with_the_export_path + tests/test_end_to_end.py::test_every_export_file_is_byte_identical_after_both_commands + tests/test_check_command.py::test_flags_file_is_not_written_inside_the_export_when_run_from_inside_it",
+      "behavior_text": "asserts a real reviewer flag lands in the file beside the export and every export file keeps its checksum",
+      "contract_text": "flags are written beside the run and the export is unchanged",
+      "evidence_type": "automated",
+      "strength": "sensitivity",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main; the task agent saw this test fail under a temporary mutation of the code it guards",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 8
+    },
+    {
+      "id": "e9",
+      "obligation_ref": "o8",
+      "test_ref": "tests/test_grade_command.py::test_recorded_answer_matches_and_wrong_does_not + tests/test_grade_command.py::test_empty_answer_is_cannot_tell + tests/test_grade_command.py::test_text_lists_found_missing_and_schema_version",
+      "behavior_text": "asserts the three results with the items found and missing",
+      "contract_text": "the result is matches, does not match or cannot tell with items found and missing",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main. The clause about the export's facts file being absent holds by interface: the command takes an answer file and an expected-values file and no export; no test deletes a facts file",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 9
+    },
+    {
+      "id": "e10",
+      "obligation_ref": "o9",
+      "test_ref": "tests/test_grade_command.py::test_two_runs_are_byte_identical + tests/test_end_to_end.py::test_a_second_run_prints_a_byte_identical_grade",
+      "behavior_text": "asserts two runs on the same inputs print identical bytes, in text and JSON, in one process and in separate processes",
+      "contract_text": "the same inputs give byte-identical results",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 10
+    },
+    {
+      "id": "e11",
+      "obligation_ref": "o10",
+      "test_ref": "tests/test_answer.py::test_bad_expected_refused_with_reason + tests/test_grade_command.py::test_refused_expected_file_is_user_error_with_remediation + tests/test_answer.py::test_every_result_names_schema_version",
+      "behavior_text": "asserts an unknown key or missing schema version is refused with the reason and every result names the schema version",
+      "contract_text": "a bad task file is refused with the reason; results name the schema version",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 11
+    },
+    {
+      "id": "e12",
+      "obligation_ref": "o11",
+      "test_ref": "tests/test_wording.py (test_check_text_wording, test_check_json_wording, test_grade_text_wording, test_grade_json_wording)",
+      "behavior_text": "asserts both commands' text and JSON carry the line about a complete trail and contain neither quality score nor accuracy",
+      "contract_text": "the output names its result, carries the line, and avoids the two phrases",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main. The fixtures behind these tests are three small exports; the unwritable-location message and the --settings text path are not covered by the wording test",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 12
+    },
+    {
+      "id": "e13",
+      "obligation_ref": "o12",
+      "test_ref": "tests/test_matcher.py::test_vectors_are_read_through_the_packaged_function + tests/test_boundaries.py::test_the_built_wheel_carries_the_data_files_and_requires_nothing + tests/test_end_to_end.py::test_the_bundled_data_files_are_byte_copies_of_associate_at_266dad3",
+      "behavior_text": "asserts the vectors are read from the package, ship in the built wheel, and match a pinned checksum",
+      "contract_text": "the shared vector files are readable from the installed package and equal the suite's",
+      "evidence_type": "automated",
+      "strength": "sensitivity",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main; the task agent saw this test fail under a temporary mutation of the code it guards",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 13
+    },
+    {
+      "id": "e14",
+      "obligation_ref": "o13",
+      "test_ref": "tests/test_release_docs.py::test_claude_md_is_no_longer_a_seed + tests/test_release_docs.py::test_claude_md_states_the_two_results_names_and_dependency_rule",
+      "behavior_text": "asserts CLAUDE.md has no seed re-init instruction and states the two results, the public names and the no-dependency rule",
+      "contract_text": "CLAUDE.md states the two results, the names and the rule",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main. The test checks that phrases are present; the main agent also read the file once in full on 2026-11-18",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 14
+    },
+    {
+      "id": "e15",
+      "obligation_ref": "o14",
+      "test_ref": "tests/test_boundaries.py::test_pyproject_declares_no_runtime_dependency + tests/test_boundaries.py::test_no_module_under_evidence_imports_associate_a_network_library_or_subprocess + tests/test_boundaries.py::test_the_built_wheel_carries_the_data_files_and_requires_nothing",
+      "behavior_text": "asserts an empty dependency list in pyproject and in the built wheel's metadata, and no network or subprocess import under evidence/",
+      "contract_text": "the dependency list is empty and no module imports a network or subprocess library",
+      "evidence_type": "automated",
+      "strength": "sensitivity",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main; the task agent saw this test fail under a temporary mutation of the code it guards",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 15
+    },
+    {
+      "id": "e16",
+      "obligation_ref": "o15",
+      "test_ref": "tests/test_check.py::test_no_module_under_evidence_imports_associate + tests/test_replays.py::test_the_replays_leave_every_fixture_file_unchanged",
+      "behavior_text": "asserts no module imports associate and fixture checksums are equal before and after the replays",
+      "contract_text": "no module imports associate; fixtures are unchanged",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main. The fixture comparison brackets the replay tests, not the whole session",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 16
+    },
+    {
+      "id": "e17",
+      "obligation_ref": "o16",
+      "test_ref": "tests/test_check.py::test_a_newer_walk_format_is_unsupported_with_the_version_found_and_no_counts + tests/test_check_command.py::test_newer_walk_format_is_unsupported_and_adds_nothing + tests/test_check.py::test_a_newer_format_export_is_unsupported_before_its_facts_file_is_read",
+      "behavior_text": "asserts a newer format gives an unsupported result naming the version, with no counts, before the facts file is read",
+      "contract_text": "a newer format is reported unsupported with the version found and no counts",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main; these tests failed before the behaviour was added",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 17
+    },
+    {
+      "id": "e18",
+      "obligation_ref": "o17",
+      "test_ref": "tests/test_answer.py::test_number_whole_token + tests/test_answer.py::test_identifier_whole_token",
+      "behavior_text": "asserts a number or identifier does not match inside a longer one and does match next to punctuation",
+      "contract_text": "a longer number or identifier containing the expected one does not match",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main; the main agent also probed 22 further cases by hand on 2026-11-18",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 18
+    },
+    {
+      "id": "e19",
+      "obligation_ref": "o18",
+      "test_ref": "tests/test_answer.py::test_empty_answer_cannot_tell + tests/test_answer.py::test_no_items_cannot_tell + tests/test_answer.py::test_cause_only_for_cannot_tell + tests/test_answer.py::test_missing_required_is_does_not_match_and_named",
+      "behavior_text": "asserts cannot tell with its cause only for an empty answer or no items, and does not match for a missing item",
+      "contract_text": "cannot tell only for the two causes; a missing item is does not match",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 19
+    },
+    {
+      "id": "e20",
+      "obligation_ref": "o19",
+      "test_ref": "tests/test_check_command.py::test_unwritable_location_prints_report_and_exits_env_error + tests/test_check_command.py::test_flags_dir_and_no_flags_exit_zero + tests/test_check_command.py::test_flags_file_failure_under_json_is_one_json_error_on_stderr",
+      "behavior_text": "asserts the report is printed, the message says the file was not written, the exit code is the environment error code, and the two options exit 0",
+      "contract_text": "an unwritable location prints the report and exits with an error code; the options exit 0",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran in the full suite (411 passed) at the merge commit on main. The unwritable case is a path that collides with a file; a directory without write permission was not tested",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-18T15:50:00+00:00",
+        "commit": "f52599de2bc6dbc10fc8c0a932727137d547e34e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 20
+    }
+  ],
+  "deltas": [
+    {
+      "id": "b1",
+      "kind": "amended",
+      "behavior_text": "eleven behaviours of the moved checker differ from associate at 266dad3 (listed in the 0.7.0 changelog): the export's own files are not read through a link pointing outside it, a cut or over-deep walk line is skipped, the walk format is tested before anything else is read, a newer-format child or prior run is not loaded and is listed, a marker without a positive integer version is unsupported, a relative child path resolves against the export, and load_export returns the raw marker value when it is not a valid version",
+      "caused_by": [
+        "c11"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b2",
+      "kind": "added",
+      "behavior_text": "the run check reports each run's stated conclusions as backed, left open or refused by the re-check, per run and summed",
+      "caused_by": [
+        "c13"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b3",
+      "kind": "added",
+      "behavior_text": "the run check takes --continue-from for one export only and requires the directory to hold a walk; the same export under different spellings is one run; a settings file of the wrong shape is a user error naming the key",
+      "caused_by": [
+        "c13"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b4",
+      "kind": "amended",
+      "behavior_text": "the printed program name is evidence, the installed command; evidence explain evidence-cli still resolves to the root entry",
+      "caused_by": [
+        "c17"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b5",
+      "kind": "added",
+      "behavior_text": "one live test recorded in docs/notes/2026-11-18-live-test.md: six associate runs on worker and cortex, three handed back, the run check's fact counts equal to associate check's on those three",
+      "caused_by": [
+        "c11"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    }
+  ],
+  "supersessions": []
+}
