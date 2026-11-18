@@ -926,6 +926,18 @@ def _read_text(path: Path) -> Optional[str]:
         return None
 
 
+def _export_json(export_dir: Path, name: str) -> Optional[dict[str, Any]]:
+    """A JSON file of the export, or None when it is absent, unreadable or linked from outside."""
+    path = export_dir / name
+    return _read_json(path) if inside_export(export_dir, path) else None
+
+
+def _export_text(export_dir: Path, name: str) -> Optional[str]:
+    """A text file of the export, or None when it is absent, unreadable or linked from outside."""
+    path = export_dir / name
+    return _read_text(path) if inside_export(export_dir, path) else None
+
+
 def _handback_outcome(check: Optional[Mapping[str, Any]]) -> str:
     """``accepted``, ``refused_after_rounds`` (the run ended on a refused hand-back),
     ``refused_unresolved`` (a round was refused and the model did not hand back
@@ -960,10 +972,9 @@ def accuracy_result(
     mode the extension recorded in ``check.json``.
     """
     export_dir = Path(export_dir)
-    check_path = export_dir / CHECK_FILENAME
-    check = _read_json(check_path) if inside_export(export_dir, check_path) else None
+    check = _export_json(export_dir, CHECK_FILENAME)
     answer_path = export_dir / ANSWER_FILENAME
-    answer = _read_text(answer_path) if inside_export(export_dir, answer_path) else None
+    answer = _export_text(export_dir, ANSWER_FILENAME)
     summary: dict[str, Any] = {
         "check_mode_used": check.get("mode") if check else None,
         "check_mode_source": check.get("mode_source") if check else None,
@@ -980,10 +991,7 @@ def accuracy_result(
         inspected = {"applicable": False, "not_applicable_reason": str(err)}
     if inspected["applicable"]:
         report = dict(inspected["report"])
-        report_path = export_dir / REPORT_FILENAME
-        ext_report = (
-            _read_json(report_path) if inside_export(export_dir, report_path) else {}
-        ) or {}
+        ext_report = _export_json(export_dir, REPORT_FILENAME) or {}
         unchecked = ext_report.get("unchecked_text")
         if isinstance(unchecked, dict):
             report["unchecked_text"] = dict(unchecked)
