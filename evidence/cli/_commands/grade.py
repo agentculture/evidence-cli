@@ -1,4 +1,4 @@
-"""``evidence-cli grade`` — check an answer text against a task's expected values.
+"""``evidence grade`` — check an answer text against a task's expected values.
 
 Reads an answer (a file, or ``-`` for standard input) and an expected-values
 file, and reports one of three results: ``matches``, ``does not match`` or

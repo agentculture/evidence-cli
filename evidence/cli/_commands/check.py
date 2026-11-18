@@ -1,4 +1,4 @@
-"""``evidence-cli check`` — re-check the hand-back facts of one or more run exports.
+"""``evidence check`` — re-check the hand-back facts of one or more run exports.
 
 For each export directory it reads ``walk.jsonl``, the saved results and the
 facts payload, runs the re-check and reports the counts per kind and per source

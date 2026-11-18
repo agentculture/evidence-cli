@@ -129,7 +129,7 @@ def test_explain_describes_each_command(capsys, path):
     rc, out, err = _call(capsys, ["explain", *path])
     assert rc == 0
     assert err == ""
-    assert f"evidence-cli {path[0]}" in out
+    assert f"evidence {path[0]}" in out
     assert NOTE in out.lower()
     _assert_clean(out)
 
@@ -140,6 +140,6 @@ def test_learn_lists_both_commands(capsys):
     paths = [c["path"] for c in json.loads(js)["commands"]]
     assert ["check"] in paths
     assert ["grade"] in paths
-    assert "evidence-cli check" in text
-    assert "evidence-cli grade" in text
+    assert "evidence check" in text
+    assert "evidence grade" in text
     _assert_clean(text + js)

@@ -72,7 +72,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from evidence.cli._commands import whoami as _whoami_cmd
 
     parser = _CliArgumentParser(
-        prog="evidence-cli",
+        prog="evidence",
         description=(
             "evidence-cli — checks the evidence around an agent run, "
             "and an answer against expected values."

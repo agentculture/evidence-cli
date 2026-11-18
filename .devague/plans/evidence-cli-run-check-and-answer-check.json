@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-18T11:13:37Z",
-  "updated": "2026-11-18T13:22:46Z",
+  "updated": "2026-11-18T14:40:13Z",
   "targets": [
     {
       "id": "c1",
@@ -515,7 +515,7 @@
       "id": "t9",
       "summary": "Live test with associate as the tester: real worker and cortex runs produce exports, and evidence check and evidence grade are run on them",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "at least one live associate run on worker and one on cortex each leave an export, and evidence check prints counts for each that equal associate check's counts for the same export",
         "evidence grade is run on each run's answer text against hand-written expected values, and each result is compared with a hand reading of the answer",

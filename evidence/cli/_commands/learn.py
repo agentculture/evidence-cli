@@ -1,4 +1,4 @@
-"""``evidence-cli learn`` — the learnability affordance.
+"""``evidence learn`` — the learnability affordance.
 
 Prints a structured self-teaching prompt. Must satisfy the agent-first rubric:
 >=200 chars and mention purpose, command map, exit codes, --json, and explain.
@@ -24,15 +24,15 @@ expected values. Neither result is folded into the other.
 
 Commands
 --------
-  evidence-cli whoami             Identity from culture.yaml.
-  evidence-cli learn              This self-teaching prompt.
-  evidence-cli explain <path>...  Markdown docs for any noun/verb path.
-  evidence-cli overview           Descriptive snapshot of the agent.
-  evidence-cli doctor             Check the agent-identity invariants.
-  evidence-cli cli overview       Describe the CLI surface itself.
-  evidence-cli check <export>...  Run check: counts of checked quotes and backed
+  evidence whoami             Identity from culture.yaml.
+  evidence learn              This self-teaching prompt.
+  evidence explain <path>...  Markdown docs for any noun/verb path.
+  evidence overview           Descriptive snapshot of the agent.
+  evidence doctor             Check the agent-identity invariants.
+  evidence cli overview       Describe the CLI surface itself.
+  evidence check <export>...  Run check: counts of checked quotes and backed
                                   conclusions for run exports.
-  evidence-cli grade              Answer check: a match against recorded expected
+  evidence grade              Answer check: a match against recorded expected
                                   values (--answer-file, --expected).
 
 Both results carry one line: a complete trail does not mean the work is correct.
@@ -51,7 +51,7 @@ Exit-code policy
 
 More detail
 -----------
-  evidence-cli explain evidence-cli
+  evidence explain evidence
 """
 
 
@@ -85,7 +85,7 @@ def _as_json_payload() -> dict[str, object]:
             "2": "environment/setup error",
         },
         "json_support": True,
-        "explain_pointer": "evidence-cli explain <path>",
+        "explain_pointer": "evidence explain <path>",
     }
 
 

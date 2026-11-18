@@ -96,6 +96,15 @@ slug: `evidence-cli-run-check-and-answer-check` · status: `exported` · from fr
   - the version is 0.7.0, the CHANGELOG has its entry, and markdownlint passes on the changed files
   - README.md names both commands and says that a complete trail does not mean the work is correct
 
+### t9 — Live test with associate as the tester: real worker and cortex runs produce exports, and evidence check and evidence grade are run on them
+
+- instruction: Run by the main agent, not a subagent: it needs the gateway key and live model runs. Use the live run recipe (scratch clone checkout, report mode, reasoning off). Record results in docs/notes; each is one run, not a rate.
+- depends on: t7
+- acceptance:
+  - at least one live associate run on worker and one on cortex each leave an export, and evidence check prints counts for each that equal associate check's counts for the same export
+  - evidence grade is run on each run's answer text against hand-written expected values, and each result is compared with a hand reading of the answer
+  - every disagreement, crash or unsupported result is recorded as found, with the export kept
+
 ## Risks
 
 - [unknown_nonblocking] evidence-cli must be released to PyPI before associate can merge the change that imports it; a defect found after release needs a second release

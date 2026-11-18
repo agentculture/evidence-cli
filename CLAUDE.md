@@ -145,7 +145,7 @@ Enforced by tests and by the `teken cli doctor . --strict` rubric gate in CI.
 2. `evidence/cli/__init__.py`: import inside `_build_parser()` and call
    `register(sub)`.
 3. `evidence/explain/catalog.py`: an `ENTRIES` entry keyed by the command-path
-   tuple. The root key is `("evidence-cli",)` and the empty tuple; check the
+   tuple. The root keys are `("evidence",)` (the installed command), `("evidence-cli",)` (the package name) and the empty tuple; check the
    file before renaming anything.
 4. `evidence/cli/_commands/learn.py`: both `_TEXT` and `_as_json_payload()`.
 
