@@ -13,13 +13,6 @@ and nothing that checks a run or an answer. Every entry below 0.7.0 is that
 scaffold's history, not work done on evidence-cli itself. This release is the
 first one with content of its own.
 
-### Changed
-
-- The printed program name is `evidence`, the installed command. Usage lines,
-  hints, `learn` and `explain` said `evidence-cli` before, which is the package
-  name and not a command. `evidence explain evidence-cli` still resolves to the
-  root entry.
-
 ### Added
 
 - **`evidence check`, the run check.** Reads one or more run exports
@@ -60,6 +53,10 @@ first one with content of its own.
 ### Changed
 
 - `README.md` describes what the package does today instead of the template.
+- The printed program name is `evidence`, the installed command. Usage lines,
+  hints, `learn` and `explain` said `evidence-cli` before, which is the package
+  name and not a command. `evidence explain evidence-cli` still resolves to the
+  root entry.
 
 ### Notes
 
