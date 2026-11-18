@@ -31,8 +31,11 @@ Where it came from, stated plainly:
 
 ### Built and unit-tested
 
-Nothing has been run against live model output yet. Say "built and unit-tested",
-never "works".
+One live test exists (`docs/notes/2026-11-18-live-test.md`): six associate runs,
+three of which handed back facts. On those three the run check printed the same
+counts as `associate check`, and the answer check agreed with a hand reading.
+Each is one run, not a rate. Beyond that, say "built and unit-tested", never
+"works".
 
 - **`evidence check <export-dir>...`, the run check.** For each run export it
   reads `walk.jsonl`, the saved results (`results/wN.txt`) and the facts payload,
