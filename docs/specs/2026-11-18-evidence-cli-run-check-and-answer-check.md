@@ -29,7 +29,7 @@
   - honesty: a checksum of every file under the export directory is unchanged after the command
 - evidence grade takes the answer text as an explicit input, with the task's expected values, and returns matches, does not match or cannot tell, with the expected items found and missing; it never reads the facts list to decide, and calls no model
   - honesty: the result is unchanged when the export's facts.json is absent, and a grade is reproduced exactly on a second run
-- expected values are data with a schema and a version: items that must appear, items that must not, and alternatives, compared after the same normalisation the matcher uses; a result names the schema version it was graded under
+- expected values are data with a schema and a version: items that must appear, items that must not, and alternatives; text is compared after collapsing whitespace only (the matcher's line-stamp stripping is not applied to an answer); a result names the schema version it was graded under
   - honesty: two results are reported as comparable only when their schema versions are equal, and a task file with an unknown key is refused
 - the words printed keep the two results apart: the run check is described as counts of checked quotes and backed conclusions, the answer check as a match against recorded expected values, and neither as quality, correctness of the work, or accuracy; each output carries the line that a complete trail does not mean the work is correct
   - honesty: a test fails if either command's output contains the words quality score or accuracy

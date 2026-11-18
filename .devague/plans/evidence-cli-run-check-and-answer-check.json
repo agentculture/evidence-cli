@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-18T11:13:37Z",
-  "updated": "2026-11-18T14:40:13Z",
+  "updated": "2026-11-18T15:42:41Z",
   "targets": [
     {
       "id": "c1",
@@ -164,7 +164,7 @@
     {
       "id": "c16",
       "kind": "requirement",
-      "text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives, compared after the same normalisation the matcher uses; a result names the schema version it was graded under",
+      "text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives; text is compared after collapsing whitespace only (the matcher's line-stamp stripping is not applied to an answer); a result names the schema version it was graded under",
       "deferred": false,
       "deferred_reason": ""
     },

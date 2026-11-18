@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-18T10:42:31Z",
-  "updated": "2026-11-18T15:00:05Z",
+  "updated": "2026-11-18T15:42:41Z",
   "claims": [
     {
       "id": "c1",
@@ -274,7 +274,7 @@
       "kind": "requirement",
       "text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives; text is compared after collapsing whitespace only (the matcher's line-stamp stripping is not applied to an answer); a result names the schema version it was graded under",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "honesty_conditions": [
         {
           "id": "h11",
