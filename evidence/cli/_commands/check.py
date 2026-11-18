@@ -86,6 +86,12 @@ def _disagreements(own: Optional[dict[str, Any]], report: dict[str, Any]) -> lis
     return found
 
 
+def _outcomes(items: list[dict[str, Any]]) -> dict[str, int]:
+    """How many of the run's conclusions the re-check accepted and how many it refused."""
+    accepted = sum(1 for item in items if item.get("outcome") == "accepted")
+    return {"accepted": accepted, "refused": len(items) - accepted}
+
+
 def _run_entry(
     export_dir: Path, settings: dict[str, Any], continue_from: Optional[Path]
 ) -> dict[str, Any]:
@@ -107,6 +113,7 @@ def _run_entry(
         facts=report["facts"],
         by_source_kind=report["by_source_kind"],
         conclusions=report["conclusions"],
+        conclusion_outcomes=_outcomes(result["verdicts"]),
         statements=report["statements"],
         own_report_found=own is not None,
         disagreements=_disagreements(own, report),
@@ -128,7 +135,10 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
     by_kind = {kind: empty_counts() for kind in SOURCE_KINDS}
     applicable = [e for e in entries if e["applicable"]]
     conclusions: dict[str, int] = {}
+    outcomes = {"accepted": 0, "refused": 0}
     for entry in applicable:
+        for key in outcomes:
+            outcomes[key] += entry["conclusion_outcomes"][key]
         for key, value in entry["conclusions"].items():
             conclusions[key] = conclusions.get(key, 0) + value
         _add(facts, entry["facts"])
@@ -145,6 +155,7 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "facts": facts,
         "by_source_kind": by_kind,
         "conclusions": conclusions,
+        "conclusion_outcomes": outcomes,
     }
 
 
@@ -196,9 +207,12 @@ def _counts_line(label: str, counts: dict[str, int]) -> str:
     )
 
 
-def _conclusions_line(counts: dict[str, int]) -> str:
-    parts = "  ".join(f"{key} {counts[key]}" for key in sorted(counts))
-    return f"  conclusions  {parts}"
+def _conclusions_line(counts: dict[str, int], outcomes: dict[str, int]) -> str:
+    stated = "  ".join(f"{key} {counts[key]}" for key in sorted(counts))
+    return (
+        f"  conclusions as the run stated them: {stated}; "
+        f"backed {outcomes['accepted']}, refused {outcomes['refused']}"
+    )
 
 
 def _settings_line(settings: dict[str, Any]) -> str:
@@ -216,7 +230,7 @@ def _render_run(entry: dict[str, Any]) -> list[str]:
     out.append(_counts_line("all", entry["facts"]))
     for kind in SOURCE_KINDS:
         out.append(_counts_line(kind, entry["by_source_kind"][kind]))
-    out.append(_conclusions_line(entry["conclusions"]))
+    out.append(_conclusions_line(entry["conclusions"], entry["conclusion_outcomes"]))
     if not entry["own_report_found"]:
         out.append("  no report.json to compare with")
     for diff in entry["disagreements"]:
@@ -253,7 +267,9 @@ def render(report: dict[str, Any]) -> str:
     out.append(_counts_line("all", report["sums"]["facts"]))
     for kind in SOURCE_KINDS:
         out.append(_counts_line(kind, report["sums"]["by_source_kind"][kind]))
-    out.append(_conclusions_line(report["sums"]["conclusions"]))
+    out.append(
+        _conclusions_line(report["sums"]["conclusions"], report["sums"]["conclusion_outcomes"])
+    )
     out += [
         "",
         _render_flags_file(report["flags_file"]),

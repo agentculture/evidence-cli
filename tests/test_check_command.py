@@ -281,12 +281,27 @@ def test_register_adds_check_verb():
     assert parsed.exports == ["x", "y"] and parsed.no_flags and parsed.func is cmd.cmd_check
 
 
-def test_the_text_report_prints_conclusion_counts_per_run_and_in_the_sums(capsys, runs):
-    """Runs A and B hand back no verdicts, so every conclusion count is 0, per run and summed."""
-    code, out, _ = run(capsys, ns([runs["a"], runs["b"]], json=False))
+def test_conclusions_are_shown_as_stated_and_as_backed_or_refused(capsys, tmp_path):
+    """A stated 'supported' is not a backed conclusion when the fact under it was refused.
+
+    Seen in a live worker run (2026-11-18): five conclusions stated as supported, four of
+    them resting on refused facts. Here f1's quote is found and f2's is not, so v1 is
+    backed and v2 is refused, while the run states both as supported.
+    """
+    export = make_export(tmp_path / "runs" / "v", [QUOTE_1, "not in the result"])
+    payload = json.loads((export / "facts.json").read_text(encoding="utf-8"))
+    payload["verdicts"] = [
+        {"id": "v1", "claim": "the first line is there", "verdict": "supported", "basis": ["f1"]},
+        {"id": "v2", "claim": "the other line is there", "verdict": "supported", "basis": ["f2"]},
+    ]
+    (export / "facts.json").write_text(json.dumps(payload), encoding="utf-8")
+    code, out, _ = run(capsys, ns([export], no_flags=True))
+    data = json.loads(out)
     assert code == 0
-    lines = [line.strip() for line in out.splitlines() if line.strip().startswith("conclusions")]
-    assert len(lines) == 3
-    assert all(" made 0" in line for line in lines)
-    code, out, _ = run(capsys, ns([runs["a"], runs["b"]]))
-    assert json.loads(out)["sums"]["conclusions"]["made"] == 0
+    assert data["runs"][0]["conclusions"] == {"made": 2, "supported": 2, "refuted": 0, "open": 0}
+    assert data["runs"][0]["conclusion_outcomes"] == {"accepted": 1, "refused": 1}
+    assert data["sums"]["conclusion_outcomes"] == {"accepted": 1, "refused": 1}
+    code, out, _ = run(capsys, ns([export], no_flags=True, json=False))
+    lines = [line.strip() for line in out.splitlines() if "conclusions as the run stated" in line]
+    assert len(lines) == 2
+    assert all(line.endswith("backed 1, refused 1") for line in lines)
