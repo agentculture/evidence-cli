@@ -256,8 +256,9 @@ def _item_errors(item):
     ],
 )
 def test_each_rule_the_validator_refuses_is_a_rule_in_the_schema_file(item):
+    expected = exp(must_appear=[item])
     with pytest.raises(ExpectedValuesError):
-        load_expected(exp(must_appear=[item]))
+        load_expected(expected)
     assert _item_errors(item), item
 
 

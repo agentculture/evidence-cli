@@ -13,10 +13,12 @@ from typing import Any, TextIO
 
 from evidence.cli._errors import CliError
 
+_UTF8 = "utf-8"
+
 
 def _encodable(text: str) -> bool:
     try:
-        text.encode("utf-8")
+        text.encode(_UTF8)
     except UnicodeEncodeError:
         return False
     return True
@@ -36,7 +38,7 @@ def emit_result(data: Any, *, json_mode: bool, stream: TextIO | None = None) -> 
         return
     text = data if isinstance(data, str) else str(data)
     if not _encodable(text):
-        text = text.encode("utf-8", "backslashreplace").decode("utf-8")
+        text = text.encode(_UTF8, "backslashreplace").decode(_UTF8)
     s.write(text)
     if not text.endswith("\n"):
         s.write("\n")

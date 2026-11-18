@@ -58,7 +58,7 @@ def _load_expected_file(path: str) -> Any:
     except RecursionError as exc:
         raise CliError(
             EXIT_USER_ERROR,
-            f"expected-values file {path!r} is nested too deeply to read",
+            f"the expected values in {path!r} are nested too deeply to read",
             "write the expected values as one JSON object with schema_version 1",
         ) from exc
 
