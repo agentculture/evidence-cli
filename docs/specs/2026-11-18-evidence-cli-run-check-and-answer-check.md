@@ -37,6 +37,14 @@
   - honesty: associate's copy and the packaged copy are compared by a test in associate and are equal at the pinned versions
 - CLAUDE.md is re-initialised from its seed into a real project file that states the two results, the public library names and the no-dependency rule
   - honesty: the file no longer contains the seed's re-init instruction
+- the run check states which export formats it supports; an export with a newer format than it knows is reported as unsupported with the version it found, never checked with older rules
+  - honesty: a fixture whose format marker says a version above the supported one produces an unsupported result and no counts
+- an expected item that is a number or an identifier matches only as a whole token, so 9 does not match 19 and 0.5 does not match 10.5; free-text items match after whitespace is collapsed, with case kept or folded as the item says
+  - honesty: for each fixture task, an answer holding a longer number that contains the expected one is graded as not matching
+- cannot tell is returned only for stated causes (an empty answer text, or expected values that name no item), each named in the result; an answer that simply lacks an expected item is does not match
+  - honesty: an empty answer gives cannot tell with its cause, and an answer missing one required item gives does not match
+- when the flags file cannot be written the command says so and exits with an error code, and an option sends the file to a named directory or suppresses writing; the printed report is the same either way
+  - honesty: run on a read-only location, the command exits non-zero with a remediation line and still prints the counts
 
 ## Honesty conditions
 
@@ -76,6 +84,15 @@
 - `s2` — `evidence-cli issue #1 (build brief)`: The brief's load-bearing distinction: a high evidence grade means the trail is complete and traceable, not that the work is correct; the lane is the trail around the code, never the code's correctness. It asks for a rubric that is data with a version, sub-scores that cite the artifact that justified them, a not-applicable outcome distinct from missing, and determinism or disclosed non-determinism. It names storybook-cli as an overlap to settle.
 - `s3` — `evidence-cli issue #3 (first input)`: Asks to read one export or many and report counts per run and summed; re-run the quote match from the saved files and report disagreements with the harness's counts; write reviewer flags to a file beside the result; stay read-only on the run. Acceptance: counts equal a hand count on a fixture, identical report on re-run, hand-back byte-identical, and the report named for what it is.
 - `s4` — `associate/accuracy/ at associate main 266dad3 (matcher.py, check.py, counts.py, 1,079 lines) and its importers`: Public functions: `check_quote` (matcher.py:56), `parse_source_ref`, `check_handback`, `load_export`, `load_handback_input`, `inspect_export`, `accuracy_result` (check.py:69,550,666,763,811,883), `fact_counts` (counts.py:32). `check_handback` takes the accuracy settings as an argument (check.py:7, 550) and reads no associate file. Importers in associate: harness/pi.py:88, harness/stub.py:21, cli/`_commands`/check.py:15-16, and six test files. The code is standard library only (check.py:5).
+- `s5` — `challenge pass / upgrade-path lens: associate/accuracy/check.py:681-685, 804`: The loader reads the walk's format version and treats anything below 2 as not applicable (check.py:804); a version above 2 passes that test and would be checked with today's rules. Once the checker lives in another package than the extension that writes exports, the two can be at different versions.
+  - seeds: `c26`
+- `s6` — `challenge pass / unstated-assumptions lens: associate/accuracy/matcher.py:37-40`: The matcher's normalise strips read line stamps and collapses whitespace; case and punctuation stay, and matching is plain substring. That is right for a quote copied from a source, but for an answer check a short expected value such as a number would match inside a longer one. The draft said the answer check uses the same normalisation without saying this.
+  - seeds: `c27`, `c28`
+- `s7` — `challenge pass / failure-mode lens: evidence-cli issue #3 (flags written beside the result)`: Exports may sit in a directory the caller cannot write (another user's scratch space, a read-only mount); the draft did not say what happens then, and a silent skip would leave a reviewer believing there were no flags.
+  - seeds: `c29`
+- `s8` — `challenge pass / security lens: associate/accuracy/check.py load_export (lines 666-700)`: The loader opens only results/wN.txt names matched by a pattern and only when the resolved path stays inside the export directory; this behaviour and its tests move unchanged. Clean for this spec. Not examined: symlinks inside an export that point outside it.
+- `s9` — `challenge pass / portability lens: associate tests/fixtures/accuracy`: A search of the six fixture files for home or temporary directory paths found none, so they can be copied into evidence-cli without tripping its portability check. Not examined: the export directories other tests build at run time.
+- `s10` — `challenge pass / operations lens: release order between two repositories`: A fix to the checker now needs an evidence-cli release and then a floor bump in associate: two pull requests where there was one. Accepted by the operator's import decision; recorded so the cost is visible. Not examined: how associate's TestPyPI pre-release job resolves the dependency.
 
 ## Decisions
 
@@ -88,3 +105,4 @@
 
 - [unknown_nonblocking] the name and location of the flags file beside the run
 - [unknown_nonblocking] whether the answer text for a run of the older harness is its final reply or its statements file; the caller supplies the text, so this is decided in associate's runner
+- [follow_up] the moved Python tests were written after the code and never seen to fail (lapse l3 of the accuracy-method work); whether to add tests shown to fail when a rule is removed is not decided here
