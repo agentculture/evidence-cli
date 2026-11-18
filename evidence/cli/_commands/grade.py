@@ -55,6 +55,12 @@ def _load_expected_file(path: str) -> Any:
             f"expected-values file {path!r} is not valid JSON: {exc.msg}",
             "write the expected values as one JSON object with schema_version 1",
         ) from exc
+    except RecursionError as exc:
+        raise CliError(
+            EXIT_USER_ERROR,
+            f"expected-values file {path!r} is nested too deeply to read",
+            "write the expected values as one JSON object with schema_version 1",
+        ) from exc
 
 
 def _item_text(item: dict[str, Any]) -> str:

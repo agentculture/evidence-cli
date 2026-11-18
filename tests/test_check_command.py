@@ -491,3 +491,31 @@ def test_a_newer_format_child_is_named_in_text_and_json(capsys, tmp_path):
     assert len(lines) == 1
     assert "not loaded" in lines[0]
     assert "walk format 3" in lines[0]
+
+
+# --- review sweep: malformed input files ---------------------------------------------
+
+DEEP = "[" * 100000 + "]" * 100000
+
+
+@pytest.mark.parametrize(
+    "content", [DEEP.encode(), b"\xff\xfe{", None], ids=["deep", "not-utf8", "directory"]
+)
+def test_a_settings_file_that_cannot_be_parsed_is_a_user_error(runs, tmp_path, content):
+    path = tmp_path / "settings.json"
+    if content is None:
+        path.mkdir()
+    else:
+        path.write_bytes(content)
+    args = ns([runs["a"]], settings=str(path), no_flags=True)
+    with pytest.raises(CliError) as err:
+        cmd.cmd_check(args)
+    assert err.value.code == EXIT_USER_ERROR
+
+
+def test_a_report_file_nested_too_deeply_is_not_compared(capsys, tmp_path):
+    export = make_export(tmp_path / "runs" / "a", [QUOTE_1])
+    (export / "report.json").write_text(DEEP, encoding="utf-8")
+    code, out, _ = run(capsys, ns([export], no_flags=True))
+    assert code == 0
+    assert json.loads(out)["runs"][0]["own_report_found"] is False

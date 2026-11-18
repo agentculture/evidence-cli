@@ -135,7 +135,7 @@ def _reports_failure(text: Optional[str]) -> bool:
         return False
     try:
         parsed = json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):  # nested too deeply to parse: text, like non-JSON
         return False
     return isinstance(parsed, dict) and parsed.get("ok") is False
 
@@ -163,12 +163,11 @@ def _find_child_accounts(value: Any, out: dict[str, str]) -> None:
 
 def _harness_part(text: str) -> Optional[str]:
     """The delegate_status saved text with the child's own words emptied."""
-    try:
-        parsed = json.loads(text)
-    except ValueError:
-        return None
     accounts: dict[str, str] = {}
-    _find_child_accounts(parsed, accounts)
+    try:
+        _find_child_accounts(json.loads(text), accounts)
+    except (ValueError, RecursionError):  # nested too deeply: the parts cannot be told apart
+        return None
     out = text
     for encoded, key in accounts.items():
         if encoded not in text:
@@ -730,7 +729,7 @@ def _read_payload(export_dir: Path) -> Optional[dict[str, Any]]:
         raise ExportError(f"{facts_path} points outside the export directory, so it is not read")
     try:
         loaded = json.loads(facts_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as err:
+    except (OSError, ValueError, RecursionError) as err:
         raise ExportError(f"cannot read {facts_path}: {err}") from err
     if not isinstance(loaded, dict):
         raise ExportError(f"{facts_path} is not a JSON object")
@@ -999,7 +998,7 @@ def inspect_export(
 def _read_json(path: Path) -> Optional[dict[str, Any]]:
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return None
     return loaded if isinstance(loaded, dict) else None
 

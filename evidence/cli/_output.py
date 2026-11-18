@@ -14,14 +14,29 @@ from typing import Any, TextIO
 from evidence.cli._errors import CliError
 
 
+def _encodable(text: str) -> bool:
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def emit_result(data: Any, *, json_mode: bool, stream: TextIO | None = None) -> None:
-    """Write a command result to stdout (or ``stream``)."""
+    """Write a command result to stdout (or ``stream``).
+
+    An input file may hold a lone surrogate (a ``\\ud800`` JSON escape), which no
+    UTF-8 stream can write: JSON is then written with that character escaped,
+    and text with it as a backslash escape, instead of failing.
+    """
     s = stream if stream is not None else sys.stdout
     if json_mode:
-        json.dump(data, s, ensure_ascii=False)
-        s.write("\n")
+        text = json.dumps(data, ensure_ascii=False)
+        s.write((text if _encodable(text) else json.dumps(data)) + "\n")
         return
     text = data if isinstance(data, str) else str(data)
+    if not _encodable(text):
+        text = text.encode("utf-8", "backslashreplace").decode("utf-8")
     s.write(text)
     if not text.endswith("\n"):
         s.write("\n")

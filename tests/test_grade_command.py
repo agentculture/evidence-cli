@@ -126,3 +126,35 @@ def test_an_answer_with_every_required_value_and_a_forbidden_one_does_not_match(
     assert payload["verdict"] == "does_not_match"
     assert payload["missing"] == []
     assert [item["text"] for item in payload["forbidden_present"]] == ["41"]
+
+
+# --- review sweep: malformed input files ---------------------------------------------
+
+DEEP = "[" * 100000 + "]" * 100000
+
+
+@pytest.mark.parametrize("which", ["answer", "expected"])
+@pytest.mark.parametrize("content", [b"\xff\xfe{", None])
+def test_an_input_that_is_not_utf8_or_is_a_directory_is_a_user_error(tmp_path, which, content):
+    path = tmp_path / "input"
+    if content is None:
+        path.mkdir()
+    else:
+        path.write_bytes(content)
+    good = FIXTURES / TASKS[0]
+    answer = path if which == "answer" else good / "answer.txt"
+    expected = path if which == "expected" else good / "expected.json"
+    args = ns(answer, expected)
+    with pytest.raises(CliError) as info:
+        cmd.cmd_grade(args)
+    assert info.value.code == EXIT_USER_ERROR
+
+
+def test_an_expected_file_nested_too_deeply_is_a_user_error(tmp_path):
+    bad = tmp_path / "e.json"
+    bad.write_text(DEEP, encoding="utf-8")
+    args = ns(FIXTURES / TASKS[0] / "answer.txt", bad)
+    with pytest.raises(CliError) as info:
+        cmd.cmd_grade(args)
+    assert info.value.code == EXIT_USER_ERROR
+    assert "nested" in info.value.message

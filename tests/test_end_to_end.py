@@ -359,3 +359,36 @@ def test_the_run_summary_reads_no_answer_or_check_file_linked_from_outside(tmp_p
     summary = accuracy_result(export, load_default_settings()[0])
     assert "text from outside" not in json.dumps(summary)
     assert summary["accuracy"]["check_mode_used"] is None
+
+
+# --- review sweep: a lone surrogate escape in an input file reaches the output --------
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_a_lone_surrogate_in_the_expected_values_is_printed_not_a_crash(tmp_path, json_mode):
+    answer = tmp_path / "answer.txt"
+    answer.write_text("x", encoding="utf-8")
+    expected = tmp_path / "expected.json"
+    expected.write_text(
+        '{"schema_version": 1, "must_appear": [{"text": "\\ud800", "kind": "text"}]}',
+        encoding="utf-8",
+    )
+    argv = ["grade", "--answer-file", str(answer), "--expected", str(expected)]
+    done = run_in_process(*argv, *(["--json"] if json_mode else []))
+    assert done.returncode == 0, done.stderr
+    if json_mode:
+        assert json.loads(done.stdout)["missing"] == [{"text": "\ud800", "kind": "text"}]
+    else:
+        assert b"\\ud800" in done.stdout
+
+
+def test_a_lone_surrogate_in_a_fact_id_is_printed_not_a_crash(tmp_path):
+    export = make_export(tmp_path / "runs" / "a" / "export", None)
+    (export / "facts.json").write_text(
+        '{"facts": [{"id": "\\ud800", "value": "", "source": "w1", "quote": "nowhere at all"}]}',
+        encoding="utf-8",
+    )
+    done = run_in_process("check", str(export), "--no-flags", "--json")
+    assert done.returncode == 0, done.stderr
+    flags = json.loads(done.stdout)["runs"][0]["flags"]
+    assert flags[0]["detail"].startswith("\ud800")

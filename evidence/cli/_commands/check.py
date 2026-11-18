@@ -54,7 +54,7 @@ def _load_settings(path: Optional[str]) -> tuple[dict[str, Any], dict[str, Any]]
         return settings, {"source": "bundled default", "version": version}
     try:
         loaded = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         raise CliError(
             EXIT_USER_ERROR,
             f"cannot read settings file {path!r}: {exc.__class__.__name__}",
@@ -128,7 +128,7 @@ def _own_report(export_dir: Path) -> Optional[dict[str, Any]]:
         return None
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return None
     return loaded if isinstance(loaded, dict) else None
 

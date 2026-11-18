@@ -536,3 +536,65 @@ def test_a_marker_line_with_another_key_is_still_the_marker(tmp_path):
     result = check_mod.inspect_export(fixture(tmp_path, marker=marker), ACCURACY)
     assert result["unsupported"] is True
     assert result["walk_format"] == 3
+
+
+# --- review sweep: input nested too deeply for the json module or for the checker -------
+
+DEEP = "[" * 100000 + "]" * 100000  # the json module raises RecursionError on this
+
+
+def test_a_walk_line_nested_too_deeply_is_skipped(tmp_path):
+    export = fixture(tmp_path)
+    with (export / "walk.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(DEEP + "\n")
+    assert len(check_mod.load_export(export)["entries"]) == 4
+
+
+def test_a_facts_file_nested_too_deeply_is_an_export_error(tmp_path):
+    export = fixture(tmp_path)
+    (export / check_mod.FACTS_FILENAME).write_text(DEEP, encoding="utf-8")
+    with pytest.raises(check_mod.ExportError, match="facts.json"):
+        check_mod.load_export(export)
+
+
+def test_the_run_summary_treats_check_and_report_files_nested_too_deeply_as_absent(tmp_path):
+    export = fixture(tmp_path)
+    (export / check_mod.CHECK_FILENAME).write_text(DEEP, encoding="utf-8")
+    (export / check_mod.REPORT_FILENAME).write_text(DEEP, encoding="utf-8")
+    summary = check_mod.accuracy_result(export, ACCURACY)
+    assert summary["handback_outcome"] == "none"
+    assert summary["accuracy"]["python_recheck_ran"] is True
+    assert summary["accuracy"]["unchecked_text_source"] is None
+
+
+@pytest.mark.parametrize("depth", [3000, 100000])
+def test_a_delegate_status_result_nested_too_deeply_is_not_first_hand(depth):
+    text = "[" * depth + "]" * depth
+    handback = {
+        "payload": {"facts": [{"id": "f1", "value": "", "source": "w1", "quote": "[[[[[[[[[["}]},
+        "entries": [{"id": "w1", "tool": "delegate_status"}],
+        "results": {"w1": text},
+    }
+    fact = check_handback(handback, ACCURACY)["facts"][0]
+    assert fact["verdict"] == "passed"
+    assert fact["first_hand"] is False
+
+
+def test_an_action_fact_on_a_result_nested_too_deeply_is_checked_as_text():
+    handback = {
+        "payload": {
+            "facts": [
+                {
+                    "id": "f1",
+                    "value": "",
+                    "source": "w1",
+                    "quote": "[[[[[[[[[[",
+                    "action": True,
+                    "tool": "bash",
+                }
+            ]
+        },
+        "entries": [{"id": "w1", "tool": "bash"}],
+        "results": {"w1": DEEP},
+    }
+    assert check_handback(handback, ACCURACY)["facts"][0]["verdict"] == "passed"
