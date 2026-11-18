@@ -20,8 +20,10 @@ first one with content of its own.
   the saved files, reports counts per kind and per source kind, reports any
   disagreement with the counts in the run's own `report.json`, and sums over the
   runs where facts apply. It is read-only on the export and writes a reviewer
-  flags file beside it. Built and unit-tested; not yet run against live model
-  output.
+  flags file beside it. It also reports how many of a run's stated conclusions
+  the re-check backed and how many it refused. One live test is recorded in
+  `docs/notes/2026-11-18-live-test.md`: six associate runs, three of which
+  handed back facts; each is one run, not a rate.
 - **`evidence grade`, the answer check.** Matches an answer text against
   recorded expected values (`must_appear`, `must_not_appear`, `one_of`) and
   returns `matches`, `does_not_match` or `cannot_tell`. It is a separate result
@@ -30,7 +32,13 @@ first one with content of its own.
   the associate repository (`agentculture/associate`) at commit `266dad3`,
   directory `associate/accuracy/`, into `evidence/accuracy/`, with the shared
   matcher vectors and the bundled default settings under `evidence/data/`.
-  Standard library only.
+  Standard library only. Two behaviours differ from the code as it was in
+  associate: an export whose walk format is newer than supported is reported as
+  unsupported, and no file of an export is read through a symbolic link that
+  points outside the export directory (`facts.json` or `walk.jsonl` linked from
+  outside is an error; `report.json`, `check.json` and `answer.md` linked from
+  outside are treated as absent). associate at `266dad3` guards only the saved
+  result files.
 - **`evidence/answer/`**, the answer check library, with the expected-values
   schema (`evidence/data/expected_values.schema.json`, schema version 1).
 - **`docs/library.md`**, the public library names with their modules, and

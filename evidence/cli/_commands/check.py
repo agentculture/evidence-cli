@@ -22,7 +22,12 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from evidence.accuracy.check import ExportError, inspect_export, load_default_settings
+from evidence.accuracy.check import (
+    ExportError,
+    inside_export,
+    inspect_export,
+    load_default_settings,
+)
 from evidence.accuracy.counts import SOURCE_KINDS, empty_counts
 from evidence.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from evidence.cli._output import emit_diagnostic, emit_result
@@ -62,8 +67,11 @@ def _load_settings(path: Optional[str]) -> tuple[dict[str, Any], dict[str, Any]]
 
 
 def _own_report(export_dir: Path) -> Optional[dict[str, Any]]:
+    path = export_dir / "report.json"
+    if not inside_export(export_dir, path):
+        return None
     try:
-        loaded = json.loads((export_dir / "report.json").read_text(encoding="utf-8"))
+        loaded = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     return loaded if isinstance(loaded, dict) else None

@@ -653,6 +653,15 @@ def _read_walk(walk_path: Path) -> tuple[Optional[dict[str, Any]], list[dict[str
     return marker, entries
 
 
+def inside_export(export_dir: Path, path: Path) -> bool:
+    """True when ``path``, with every symbolic link followed, lies inside ``export_dir``.
+
+    An export is written by a model run, so a file in it may be a link to anywhere.
+    Nothing outside the export directory is read as part of it.
+    """
+    return Path(export_dir).resolve() in Path(path).resolve().parents
+
+
 def _read_results(export_dir: Path, entries: list[dict[str, Any]]) -> dict[str, str]:
     """Walk id to saved text, for each ``results/wN.txt`` inside the export directory."""
     root = export_dir.resolve()
@@ -676,6 +685,8 @@ def _read_payload(export_dir: Path) -> Optional[dict[str, Any]]:
     facts_path = export_dir / FACTS_FILENAME
     if not facts_path.is_file():
         return None
+    if not inside_export(export_dir, facts_path):
+        raise ExportError(f"{facts_path} points outside the export directory, so it is not read")
     try:
         loaded = json.loads(facts_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
@@ -699,6 +710,8 @@ def load_export(export_dir: Path) -> dict[str, Any]:
         raise ExportError(f"{export_dir} is not a directory")
     if not walk_path.is_file():
         raise ExportError(f"{export_dir} has no {WALK_FILENAME}")
+    if not inside_export(export_dir, walk_path):
+        raise ExportError(f"{walk_path} points outside the export directory, so it is not read")
     marker, entries = _read_walk(walk_path)
     version = marker.get("version") if marker else None
     results = _read_results(export_dir, entries)
@@ -947,9 +960,10 @@ def accuracy_result(
     mode the extension recorded in ``check.json``.
     """
     export_dir = Path(export_dir)
-    check = _read_json(export_dir / CHECK_FILENAME)
+    check_path = export_dir / CHECK_FILENAME
+    check = _read_json(check_path) if inside_export(export_dir, check_path) else None
     answer_path = export_dir / ANSWER_FILENAME
-    answer = _read_text(answer_path)
+    answer = _read_text(answer_path) if inside_export(export_dir, answer_path) else None
     summary: dict[str, Any] = {
         "check_mode_used": check.get("mode") if check else None,
         "check_mode_source": check.get("mode_source") if check else None,
@@ -966,7 +980,10 @@ def accuracy_result(
         inspected = {"applicable": False, "not_applicable_reason": str(err)}
     if inspected["applicable"]:
         report = dict(inspected["report"])
-        ext_report = _read_json(export_dir / REPORT_FILENAME) or {}
+        report_path = export_dir / REPORT_FILENAME
+        ext_report = (
+            _read_json(report_path) if inside_export(export_dir, report_path) else {}
+        ) or {}
         unchecked = ext_report.get("unchecked_text")
         if isinstance(unchecked, dict):
             report["unchecked_text"] = dict(unchecked)

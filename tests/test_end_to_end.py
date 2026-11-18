@@ -307,23 +307,55 @@ def test_a_symlinked_result_pointing_outside_the_export_is_not_read(capsys, tmp_
     assert facts["unchecked"] == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT in evidence/accuracy/check.py _read_payload: facts.json is opened with "
-        "is_file()/read_text(), which follow a symlink, so a facts.json that links to a file "
-        "outside the export is read and counted as the run's facts (results/wN.txt links are "
-        "refused by _read_results, facts.json is not)."
-    ),
-)
+def _linked_export(tmp_path, name, content):
+    """An export with facts, where ``name`` is a link to a file outside the export."""
+    outside = tmp_path / f"outside-{name}"
+    outside.write_text(content, encoding="utf-8")
+    export = make_export(tmp_path / "runs" / "a" / "export", [QUOTE_1])
+    (export / name).unlink(missing_ok=True)
+    (export / name).symlink_to(outside)
+    return export
+
+
 def test_a_symlinked_facts_file_pointing_outside_the_export_is_not_read(capsys, tmp_path):
-    outside = tmp_path / "outside-facts.json"
     fact = {"id": "f1", "value": "", "source": "w1", "quote": QUOTE_1}
-    outside.write_text(json.dumps({"facts": [fact]}), encoding="utf-8")
-    export = make_export(tmp_path / "runs" / "a" / "export", None)
-    (export / "facts.json").symlink_to(outside)
+    export = _linked_export(tmp_path, "facts.json", json.dumps({"facts": [fact, fact, fact]}))
+    code, out, err = call(capsys, ["check", str(export), "--no-flags", "--json"])
+    assert code == 1
+    assert out == ""
+    assert "points outside the export directory" in err
+
+
+def test_a_symlinked_walk_pointing_outside_the_export_is_not_read(capsys, tmp_path):
+    export = make_export(tmp_path / "runs" / "a" / "export", [QUOTE_1])
+    walk = (export / "walk.jsonl").read_text(encoding="utf-8")
+    outside = tmp_path / "outside-walk.jsonl"
+    outside.write_text(walk, encoding="utf-8")
+    (export / "walk.jsonl").unlink()
+    (export / "walk.jsonl").symlink_to(outside)
+    code, out, err = call(capsys, ["check", str(export), "--no-flags", "--json"])
+    assert code == 1
+    assert out == ""
+    assert "points outside the export directory" in err
+
+
+def test_a_symlinked_report_pointing_outside_the_export_is_not_compared(capsys, tmp_path):
+    wrong = {"facts": {"made": 99, "checked": 99, "passed": 99, "refused": 0, "unchecked": 0}}
+    export = _linked_export(tmp_path, "report.json", json.dumps(wrong))
     code, out, _ = call(capsys, ["check", str(export), "--no-flags", "--json"])
     run = json.loads(out)["runs"][0]
     assert code == 0
-    assert run["applicable"] is False
-    assert run["facts"] == []
+    assert run["own_report_found"] is False
+    assert run["disagreements"] == []
+    assert run["facts"]["made"] == 1
+
+
+def test_the_run_summary_reads_no_answer_or_check_file_linked_from_outside(tmp_path):
+    from evidence.accuracy.check import accuracy_result, load_default_settings
+
+    export = _linked_export(tmp_path, "answer.md", "text from outside the export")
+    (tmp_path / "outside-check.json").write_text(json.dumps({"mode": "enforce"}), encoding="utf-8")
+    (export / "check.json").symlink_to(tmp_path / "outside-check.json")
+    summary = accuracy_result(export, load_default_settings()[0])
+    assert "text from outside" not in json.dumps(summary)
+    assert summary["accuracy"]["check_mode_used"] is None
