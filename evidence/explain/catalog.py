@@ -115,6 +115,42 @@ itself (distinct from the global `overview`, which describes the agent).
     evidence-cli cli overview --json
 """
 
+_CHECK = """\
+# evidence-cli check
+
+Run check: counts of checked quotes and backed conclusions, recomputed from one or
+more run export directories (`walk.jsonl`, the saved results, the facts file). It
+reports counts per kind and per source kind, any disagreement with the run's own
+`report.json`, and sums over the runs where facts apply. "Quote found" means the
+quote was found in the saved result the fact cites; it does not say the fact is
+true. Reviewer flags are written to `evidence/flags.json` beside the export
+directory (`--flags-dir DIR` to move it, `--no-flags` to skip it).
+
+A complete trail does not mean the work is correct.
+
+## Usage
+
+    evidence-cli check <export_dir>...
+    evidence-cli check <export_dir> --json
+"""
+
+_GRADE = """\
+# evidence-cli grade
+
+Answer check: a match against recorded expected values. Reads an answer text
+(`--answer-file`, or `-` for standard input) and an expected-values JSON file
+(`--expected`) and prints one of `matches`, `does not match` or `cannot tell`, with
+the items found and missing. All three results exit 0; an unreadable or refused
+input exits 1.
+
+A complete trail does not mean the work is correct.
+
+## Usage
+
+    evidence-cli grade --answer-file answer.txt --expected expected.json
+    evidence-cli grade --answer-file - --expected expected.json --json
+"""
+
 
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
@@ -127,4 +163,6 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("doctor",): _DOCTOR,
     ("cli",): _CLI,
     ("cli", "overview"): _CLI,
+    ("check",): _CHECK,
+    ("grade",): _GRADE,
 }

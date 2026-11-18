@@ -29,6 +29,12 @@ Commands
   evidence-cli overview           Descriptive snapshot of the agent.
   evidence-cli doctor             Check the agent-identity invariants.
   evidence-cli cli overview       Describe the CLI surface itself.
+  evidence-cli check <export>...  Run check: counts of checked quotes and backed
+                                  conclusions for run exports.
+  evidence-cli grade              Answer check: a match against recorded expected
+                                  values (--answer-file, --expected).
+
+Both results carry one line: a complete trail does not mean the work is correct.
 
 Machine-readable output
 -----------------------
@@ -60,6 +66,14 @@ def _as_json_payload() -> dict[str, object]:
             {"path": ["overview"], "summary": "Descriptive snapshot of the agent."},
             {"path": ["doctor"], "summary": "Check the agent-identity invariants."},
             {"path": ["cli", "overview"], "summary": "Describe the CLI surface."},
+            {
+                "path": ["check"],
+                "summary": "Run check: counts of checked quotes and backed conclusions.",
+            },
+            {
+                "path": ["grade"],
+                "summary": "Answer check: a match against recorded expected values.",
+            },
         ],
         "exit_codes": {
             "0": "success",
