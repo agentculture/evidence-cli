@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "evidence expected values",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "must_appear": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "must_not_appear": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "one_of": {
+      "type": "array",
+      "items": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/item"}}
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "kind"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["number", "identifier", "text"]},
+        "fold_case": {"type": "boolean", "description": "text items only; default false"}
+      }
+    }
+  }
+}
