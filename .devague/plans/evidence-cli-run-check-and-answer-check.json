@@ -3,9 +3,9 @@
   "title": "evidence-cli run check and answer check",
   "frame_slug": "evidence-cli-run-check-and-answer-check",
   "schema_version": 5,
-  "status": "drafting",
+  "status": "exported",
   "created": "2026-11-18T11:13:37Z",
-  "updated": "2026-11-18T11:14:40Z",
+  "updated": "2026-11-18T12:06:23Z",
   "targets": [
     {
       "id": "c1",
@@ -321,7 +321,7 @@
       "id": "t1",
       "summary": "Move the quote matcher and the counts into evidence/accuracy, and ship the shared vectors in the package",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "every matcher case in evidence/data/matcher_vectors.json passes against evidence.accuracy.matcher.check_quote",
         "evidence.accuracy.counts.fact_counts and the per-source-kind counts return the same values as the associate versions on the ported tests",
@@ -339,7 +339,7 @@
       "id": "t2",
       "summary": "Move the hand-back checker, the export loader and the run summary; make settings an explicit input; report unsupported export formats",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "every hand-back case in the shared vectors passes against evidence.accuracy.check.check_handback",
         "each of the eight public functions is importable from its evidence.accuracy module and the ported tests pass unchanged in what they assert",
@@ -363,7 +363,7 @@
       "id": "t3",
       "summary": "Build the run check command module: one export or many, sums, disagreements, flags file",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "on the fixture exports the per-run counts and the sums equal a hand count written in the test",
         "a fixture whose report.json states a wrong count is listed as a disagreement with both values, and a run with no facts is reported as not applicable and adds nothing to the sums",
@@ -390,7 +390,7 @@
       "id": "t4",
       "summary": "Build the answer check library and its expected-values schema",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "an answer holding every required item and no forbidden item is matches; one missing a required item, or holding a forbidden one, is does_not_match, with the items named",
         "a number or identifier item does not match inside a longer number or identifier, and does match as a whole token next to punctuation",
@@ -417,7 +417,7 @@
       "id": "t5",
       "summary": "Build the answer check command module",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "for each fixture task the recorded answer is reported as matches and a hand-written wrong answer as does not match",
         "the answer can be given as a file or on standard input, and the result is identical",
@@ -437,7 +437,7 @@
       "id": "t6",
       "summary": "Register both commands, document them in explain and learn, and fix the wording that keeps the two results apart",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "evidence check and evidence grade run from the console entry point, and evidence explain check and evidence explain grade describe them",
         "uv run teken cli doctor . --strict passes",
@@ -462,7 +462,7 @@
       "id": "t7",
       "summary": "End-to-end and boundary tests on the fixture exports",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "five separately named end-to-end tests exist, one for each part of the success signal, and pass",
         "a test fails if pyproject.toml gains a runtime dependency or a module under evidence/ imports associate, a network library or subprocess",
@@ -487,7 +487,7 @@
       "id": "t8",
       "summary": "Rewrite CLAUDE.md from its seed, document the public library names, and release notes for 0.7.0",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "CLAUDE.md no longer contains the seed's re-init instruction and states the two results, the public names and the no-dependency rule",
         "every name listed in docs/library.md is importable, checked by a test, and the list includes the eight functions associate imports",

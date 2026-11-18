@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-18T10:42:31Z",
-  "updated": "2026-11-18T11:13:23Z",
+  "updated": "2026-11-18T12:06:22Z",
   "claims": [
     {
       "id": "c1",
@@ -634,7 +634,7 @@
       "behavior": "given the names associate imports today (check_quote, check_handback, load_export, load_handback_input, inspect_export, accuracy_result, fact_counts, parse_source_ref), each is importable under its documented path and returns, for every saved test export, the result the associate version returned",
       "source_text": "the matcher, the checker, the counts, the export loader and the run-result summary move from associate/accuracy into evidence-cli with their tests, keeping function names and results; the public names are listed in the documentation and a change to any of them is a breaking release",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o2",
@@ -643,7 +643,7 @@
       "behavior": "given every shared vector, the moved matcher and checker return the expected verdict",
       "source_text": "the matcher, the checker, the counts, the export loader and the run-result summary move from associate/accuracy into evidence-cli with their tests, keeping function names and results; the public names are listed in the documentation and a change to any of them is a breaking release",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o3",
@@ -652,7 +652,7 @@
       "behavior": "given no settings file, the output names the bundled default settings and their version; given a settings file, the check uses it and names it",
       "source_text": "the checker's settings (source kinds, the reason-to-check mapping, the minimum quote length) are an explicit input; the command accepts a settings file and otherwise uses a bundled default that it names in its output",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o4",
@@ -661,7 +661,7 @@
       "behavior": "given several exports, the report holds counts by kind and by source kind for each run and their sum, equal to a hand count on the fixtures",
       "source_text": "evidence check reports, per run and summed, the counts by kind and by source kind, and lists each place its own re-check disagrees with the counts the harness wrote; a run with no facts is reported as not applicable, not as zero",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o5",
@@ -670,7 +670,7 @@
       "behavior": "given an export whose report.json states a count that differs from the re-check, that count is listed as a disagreement with both values",
       "source_text": "evidence check reports, per run and summed, the counts by kind and by source kind, and lists each place its own re-check disagrees with the counts the harness wrote; a run with no facts is reported as not applicable, not as zero",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o6",
@@ -679,7 +679,7 @@
       "behavior": "given an export with no facts file or an old walk, the run is reported as not applicable and adds nothing to the sums",
       "source_text": "evidence check reports, per run and summed, the counts by kind and by source kind, and lists each place its own re-check disagrees with the counts the harness wrote; a run with no facts is reported as not applicable, not as zero",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o7",
@@ -688,7 +688,7 @@
       "behavior": "given a run with reviewer flags, a file beside the export holds them, and every file under the export directory has the same checksum before and after",
       "source_text": "reviewer flags are written to a file beside the run, in a location the run did not write, and no file of the export is modified or created inside it",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o8",
@@ -697,7 +697,7 @@
       "behavior": "given an answer text and a task's expected values, the result is matches, does not match or cannot tell, with the items found and missing, and it is the same with the export's facts file absent",
       "source_text": "evidence grade takes the answer text as an explicit input, with the task's expected values, and returns matches, does not match or cannot tell, with the expected items found and missing; it never reads the facts list to decide, and calls no model",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o9",
@@ -706,7 +706,7 @@
       "behavior": "given the same inputs twice, the two results are byte-identical",
       "source_text": "evidence grade takes the answer text as an explicit input, with the task's expected values, and returns matches, does not match or cannot tell, with the expected items found and missing; it never reads the facts list to decide, and calls no model",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o10",
@@ -715,7 +715,7 @@
       "behavior": "given a task file with an unknown key or no schema version, the command refuses it with the reason; every result names the schema version it used",
       "source_text": "expected values are data with a schema and a version: items that must appear, items that must not, and alternatives, compared after the same normalisation the matcher uses; a result names the schema version it was graded under",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o11",
@@ -724,7 +724,7 @@
       "behavior": "given any run of either command, the output names its result for what it is, carries the line that a complete trail does not mean the work is correct, and contains neither quality score nor accuracy",
       "source_text": "the words printed keep the two results apart: the run check is described as counts of checked quotes and backed conclusions, the answer check as a match against recorded expected values, and neither as quality, correctness of the work, or accuracy; each output carries the line that a complete trail does not mean the work is correct",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o12",
@@ -733,7 +733,7 @@
       "behavior": "given the installed package, the shared vector files can be read from it and equal the files the test suite uses",
       "source_text": "the shared test vectors ship inside the evidence-cli package, so associate can compare its own copy with the installed one",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o13",
@@ -742,7 +742,7 @@
       "behavior": "given the repository after this work, CLAUDE.md states the two results, the public library names and the no-dependency rule, and holds no seed re-init instruction",
       "source_text": "CLAUDE.md is re-initialised from its seed into a real project file that states the two results, the public library names and the no-dependency rule",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o14",
@@ -751,7 +751,7 @@
       "behavior": "given the built package, its dependency list is empty and no module imports a network or subprocess library to reach a model",
       "source_text": "no runtime dependency, no model call and no network access; the same inputs give the same output",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o15",
@@ -760,7 +760,7 @@
       "behavior": "given the source tree, no module imports associate, and the test suite leaves every fixture export unchanged",
       "source_text": "evidence-cli never imports associate, and never edits a run; the TypeScript checker stays in associate's extension",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o16",
@@ -769,7 +769,7 @@
       "behavior": "given an export whose format version is above the supported one, the run is reported as unsupported with the version found and no counts are produced for it",
       "source_text": "the run check states which export formats it supports; an export with a newer format than it knows is reported as unsupported with the version it found, never checked with older rules",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o17",
@@ -778,7 +778,7 @@
       "behavior": "given an expected number or identifier, an answer containing only a longer number or identifier that includes it is does not match",
       "source_text": "an expected item that is a number or an identifier matches only as a whole token, so 9 does not match 19 and 0.5 does not match 10.5; free-text items match after whitespace is collapsed, with case kept or folded as the item says",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o18",
@@ -787,7 +787,7 @@
       "behavior": "given an empty answer text or expected values naming no item, the result is cannot tell with its cause; given an answer missing a required item, the result is does not match",
       "source_text": "cannot tell is returned only for stated causes (an empty answer text, or expected values that name no item), each named in the result; an answer that simply lacks an expected item is does not match",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o19",
@@ -796,7 +796,7 @@
       "behavior": "given a location that cannot be written, the command prints the report, says the flags file was not written, and exits with an error code; given the redirect or suppress option, it exits 0",
       "source_text": "when the flags file cannot be written the command says so and exits with an error code, and an option sends the file to a named directory or suppresses writing; the printed report is the same either way",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ]
 }
