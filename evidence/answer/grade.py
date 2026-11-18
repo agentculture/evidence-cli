@@ -3,8 +3,10 @@
 import re
 from typing import Any
 
-from evidence.accuracy.matcher import normalise
 from evidence.answer.schema import SCHEMA_VERSION, load_expected
+
+# The matcher's whitespace set; unlike the matcher's normalise, no line stamp is stripped.
+_SPACE = re.compile(r"[ \t\n\r\f\v]+")
 
 _WORD = "A-Za-z0-9_"
 _NUMBER_BEFORE = rf"(?<![{_WORD}])(?<![0-9][.,])"
@@ -14,6 +16,15 @@ _NUMBER_AFTER = rf"(?![{_WORD}])(?![.,][0-9])"
 _NOT_NEGATED = rf"(?:(?<!-)|(?<=[{_WORD}]-))"
 _IDENT_BEFORE = rf"(?<![{_WORD}./-])"
 _IDENT_AFTER = rf"(?![{_WORD}/-])(?!\.[{_WORD}])"
+
+
+def _collapse(text: str) -> str:
+    """Collapse each run of whitespace to one space and trim; nothing else changes.
+
+    An answer line such as ``42<tab>files`` keeps its ``42``: the answer is not a
+    saved read result, so it carries no line stamps to strip.
+    """
+    return _SPACE.sub(" ", text).strip(" ")
 
 
 def _token_pattern(item: dict[str, Any]) -> str:
@@ -26,7 +37,7 @@ def _token_pattern(item: dict[str, Any]) -> str:
 
 def _present(item: dict[str, Any], answer: str) -> bool:
     if item["kind"] == "text":
-        needle = normalise(item["text"])
+        needle = _collapse(item["text"])
         if item.get("fold_case", False):
             return needle.casefold() in answer.casefold()
         return needle in answer
@@ -56,7 +67,7 @@ def _check_groups(groups, answer: str, found: list, missing: list) -> None:
 def grade(answer_text: str, expected: Any) -> dict[str, Any]:
     """Grade ``answer_text`` against ``expected``; see the package docstring."""
     exp = load_expected(expected)
-    answer = normalise(answer_text)
+    answer = _collapse(answer_text)
     if not any((exp["must_appear"], exp["must_not_appear"], exp["one_of"])):
         return _result("cannot_tell", [], [], [], "no_expected_items")
     if not answer:

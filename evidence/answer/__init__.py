@@ -17,8 +17,9 @@ Expected values (JSON object, ``schema_version`` 1; the schema ships as
             "kind": "number" | "identifier" | "text",
             "fold_case": bool}          # optional, "text" items only
 
-Any other key, at any level, is refused. Matching, after
-``evidence.accuracy.matcher.normalise`` has collapsed whitespace in the answer:
+Any other key, at any level, is refused. Matching, after each run of
+whitespace in the answer and in a ``text`` item has been collapsed to one space
+(nothing else is changed: a line starting ``42<tab>`` keeps its ``42``):
 
 * ``text``: substring; ``fold_case`` compares case-insensitively.
 * ``number`` (``-?digits`` with optional ``.``/``,`` groups): a whole token, so

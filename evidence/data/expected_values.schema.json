@@ -19,10 +19,29 @@
       "additionalProperties": false,
       "required": ["text", "kind"],
       "properties": {
-        "text": {"type": "string", "minLength": 1},
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "not empty and not whitespace only"
+        },
         "kind": {"enum": ["number", "identifier", "text"]},
         "fold_case": {"type": "boolean", "description": "text items only; default false"}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "number"}}},
+          "then": {"properties": {"text": {"pattern": "^-?\\d+(?:[.,]\\d+)*$"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "identifier"}}},
+          "then": {"properties": {"text": {"pattern": "^\\S+$"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "text"}}},
+          "else": {"not": {"required": ["fold_case"]}}
+        }
+      ]
     }
   }
 }
