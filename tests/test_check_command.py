@@ -311,9 +311,183 @@ def test_conclusions_are_shown_as_stated_and_as_backed_or_refused(capsys, tmp_pa
     data = json.loads(out)
     assert code == 0
     assert data["runs"][0]["conclusions"] == {"made": 2, "supported": 2, "refuted": 0, "open": 0}
-    assert data["runs"][0]["conclusion_outcomes"] == {"accepted": 1, "refused": 1}
-    assert data["sums"]["conclusion_outcomes"] == {"accepted": 1, "refused": 1}
+    assert data["runs"][0]["conclusion_outcomes"] == {"backed": 1, "open": 0, "refused": 1}
+    assert data["sums"]["conclusion_outcomes"] == {"backed": 1, "open": 0, "refused": 1}
     code, out, _ = run(capsys, ns([export], no_flags=True, json=False))
     lines = [line.strip() for line in out.splitlines() if "conclusions as the run stated" in line]
     assert len(lines) == 2
-    assert all(line.endswith("backed 1, refused 1") for line in lines)
+    assert all(line.endswith("backed 1, left open 0, refused 1") for line in lines)
+
+
+# --- review findings ------------------------------------------------------------------
+
+
+def _with_verdicts(export: Path, verdicts: list[dict[str, Any]]) -> Path:
+    payload = json.loads((export / "facts.json").read_text(encoding="utf-8"))
+    payload["verdicts"] = verdicts
+    (export / "facts.json").write_text(json.dumps(payload), encoding="utf-8")
+    return export
+
+
+def test_a_verdict_left_open_is_counted_open_not_backed(capsys, tmp_path):
+    export = _with_verdicts(
+        make_export(tmp_path / "runs" / "v", [QUOTE_1, "not in the result"]),
+        [
+            {"id": "v1", "claim": "c", "verdict": "supported", "basis": ["f1"]},
+            {"id": "v2", "claim": "c", "verdict": "supported", "basis": ["f2"]},
+            {"id": "v3", "claim": "c", "verdict": "open", "basis": ["f1"], "check": "run it"},
+            {"id": "v4", "claim": "c", "verdict": "cannot_tell", "basis": [], "check": "ask"},
+        ],
+    )
+    _, out, _ = run(capsys, ns([export], no_flags=True))
+    data = json.loads(out)
+    assert data["runs"][0]["conclusion_outcomes"] == {"backed": 1, "open": 2, "refused": 1}
+    assert data["sums"]["conclusion_outcomes"] == {"backed": 1, "open": 2, "refused": 1}
+    _, text, _ = run(capsys, ns([export], no_flags=True, json=False))
+    assert "backed 1, left open 2, refused 1" in text
+
+
+def test_a_refuted_verdict_that_is_accepted_is_backed(capsys, tmp_path):
+    export = _with_verdicts(
+        make_export(tmp_path / "runs" / "v", [QUOTE_1]),
+        [{"id": "v1", "claim": "c", "verdict": "refuted", "basis": ["f1"]}],
+    )
+    _, out, _ = run(capsys, ns([export], no_flags=True))
+    assert json.loads(out)["runs"][0]["conclusion_outcomes"] == {
+        "backed": 1,
+        "open": 0,
+        "refused": 0,
+    }
+
+
+def test_flags_file_is_not_written_inside_the_export_when_run_from_inside_it(
+    capsys, runs, monkeypatch
+):
+    monkeypatch.chdir(runs["a"])
+    before = checksums(runs["a"])
+    code, out, _ = run(capsys, ns(["."]))
+    assert code == 0
+    assert not (runs["a"] / "evidence").exists()
+    assert checksums(runs["a"]) == before
+    assert (runs["a"].parent / "evidence" / "flags.json").is_file()
+    assert json.loads(out)["runs"][0]["export"] == "."
+
+
+def test_flags_file_for_a_path_ending_in_dotdot_goes_beside_the_export(capsys, runs):
+    code, _, _ = run(capsys, ns([runs["a"] / "results" / ".."]))
+    assert code == 0
+    assert not (runs["a"] / "evidence").exists()
+    assert (runs["a"].parent / "evidence" / "flags.json").is_file()
+
+
+def test_the_same_export_spelled_three_ways_is_one_run(capsys, runs):
+    a = str(runs["a"])
+    spellings = [a, a + "/", str(runs["a"].parent / "." / "a")]
+    _, out, _ = run(capsys, ns(spellings, no_flags=True))
+    data = json.loads(out)
+    assert data["sums"]["runs"]["given"] == 1
+    assert data["sums"]["facts"]["made"] == 3
+    assert [r["export"] for r in data["runs"]] == [a]
+
+
+def test_runs_are_ordered_by_resolved_path(capsys, runs):
+    (runs["a"].parent / "zz").mkdir()
+    spelled = [str(runs["b"]), str(runs["a"].parent / "zz" / ".." / "a")]
+    _, out, _ = run(capsys, ns(spelled, no_flags=True))
+    assert [r["export"] for r in json.loads(out)["runs"]] == [spelled[1], spelled[0]]
+
+
+def test_continue_from_with_two_exports_is_a_user_error(runs, tmp_path):
+    args = ns([runs["a"], runs["b"]], continue_from=str(runs["c"]))
+    with pytest.raises(CliError) as err:
+        cmd.cmd_check(args)
+    assert err.value.code == EXIT_USER_ERROR
+    assert "on its own" in err.value.remediation
+
+
+@pytest.mark.parametrize("name", ["missing", "empty"])
+def test_continue_from_with_no_walk_is_a_user_error(runs, tmp_path, name):
+    (tmp_path / "empty").mkdir()
+    args = ns([runs["a"]], continue_from=str(tmp_path / name))
+    with pytest.raises(CliError) as err:
+        cmd.cmd_check(args)
+    assert err.value.code == EXIT_USER_ERROR
+    assert "walk.jsonl" in err.value.message
+
+
+def test_continue_from_may_name_the_session_directory(capsys, runs):
+    session = runs["c"].parent / "session"
+    make_export(session / "export", None)
+    code, _, _ = run(capsys, ns([runs["a"]], continue_from=str(session), no_flags=True))
+    assert code == 0
+
+
+def test_flags_file_failure_under_json_is_one_json_error_on_stderr(capsys, runs):
+    (runs["a"].parent / "evidence").write_text("a file, not a directory", encoding="utf-8")
+    code, out, err = run(capsys, ns([runs["a"]]))
+    assert code == EXIT_ENV_ERROR
+    assert json.loads(out)["flags_file"]["written"] is False
+    error = json.loads(err)
+    assert error["code"] == EXIT_ENV_ERROR
+    assert "flags file was not written" in error["message"]
+    assert "--flags-dir" in error["remediation"]
+
+
+def _settings_with(tmp_path: Path, **changes: Any) -> str:
+    from evidence.accuracy.check import load_default_settings
+
+    settings = load_default_settings()[0]
+    for key, value in changes.items():
+        if value is KeyError:
+            del settings[key]
+        else:
+            settings[key] = value
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps(settings), encoding="utf-8")
+    return str(path)
+
+
+@pytest.mark.parametrize(
+    "key, value",
+    [
+        ("source_kinds", "read"),
+        ("refusal_checks", []),
+        ("min_quote_length", "8"),
+        ("min_quote_length", True),
+        ("source_kinds", {"read": 5}),
+        ("refusal_checks", {"quote_absent": None}),
+        ("checks", ["not an object"]),
+        ("source_kinds", KeyError),
+    ],
+)
+def test_a_settings_file_of_the_wrong_shape_is_a_user_error_naming_the_key(
+    runs, tmp_path, key, value
+):
+    args = ns([runs["a"]], settings=_settings_with(tmp_path, **{key: value}), no_flags=True)
+    with pytest.raises(CliError) as err:
+        cmd.cmd_check(args)
+    assert err.value.code == EXIT_USER_ERROR
+    assert key in err.value.message
+
+
+def test_a_settings_file_may_use_a_broken_min_quote_length_number(capsys, runs, tmp_path):
+    """0 is a number of the right type; the library refuses every fact with it (fails closed)."""
+    args = ns([runs["a"]], settings=_settings_with(tmp_path, min_quote_length=0), no_flags=True)
+    code, out, _ = run(capsys, args)
+    assert code == 0
+    assert json.loads(out)["runs"][0]["facts"]["refused"] == 3
+
+
+def test_a_newer_format_child_is_named_in_text_and_json(capsys, tmp_path):
+    child = make_export(tmp_path / "runs" / "child" / "export", [QUOTE_1], version=3)
+    export = make_export(tmp_path / "runs" / "p" / "export", [QUOTE_1])
+    with (export / "walk.jsonl").open("a", encoding="utf-8") as handle:
+        link = {"child": {"id": "c1", "child_walk": str(child / "walk.jsonl")}}
+        handle.write(json.dumps(link) + "\n")
+    _, out, _ = run(capsys, ns([export], no_flags=True))
+    assert json.loads(out)["runs"][0]["unsupported_runs"] == [{"label": "c1", "walk_format": 3}]
+    _, text, _ = run(capsys, ns([export], no_flags=True, json=False))
+    lines = [line for line in text.splitlines() if "c1" in line]
+    assert len(lines) == 1
+    assert "not loaded" in lines[0]
+    assert "walk format 3" in lines[0]

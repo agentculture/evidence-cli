@@ -23,20 +23,26 @@ from pathlib import Path
 from typing import Any, Optional
 
 from evidence.accuracy.check import (
+    WALK_FILENAME,
     ExportError,
+    _prior_dir,
     inside_export,
     inspect_export,
     load_default_settings,
+    load_export,
 )
 from evidence.accuracy.counts import SOURCE_KINDS, empty_counts
 from evidence.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
-from evidence.cli._output import emit_diagnostic, emit_result
+from evidence.cli._output import emit_error, emit_result
 
 NOTE = "a complete trail does not mean the work is correct"
 FLAGS_NAME = "flags.json"
 FLAGS_SUBDIR = "evidence"
 _COUNT_KEYS = tuple(empty_counts())
 _COMPARED_SECTIONS = ("facts", "conclusions")
+_DECIDED = ("supported", "refuted")
+_OUTCOME_KEYS = ("backed", "open", "refused")
+_SETTINGS_HINT = "pass a JSON object shaped like the bundled default, or omit --settings"
 
 # --- settings -----------------------------------------------------------------
 
@@ -60,7 +66,57 @@ def _load_settings(path: Optional[str]) -> tuple[dict[str, Any], dict[str, Any]]
             f"settings file {path!r} is not a JSON object",
             "pass a JSON object, or omit --settings for the bundled default",
         )
+    _check_settings_shape(loaded, path)
     return loaded, {"source": "file", "path": path, "version": loaded.get("version")}
+
+
+def _json_type(value: Any) -> str:
+    """The JSON type of a parsed value; an int and a float are both a number."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    return "array" if isinstance(value, list) else "object"
+
+
+def _inner_values(value: Any) -> list[Any]:
+    return list(value.values()) if isinstance(value, dict) else list(value)
+
+
+def _shape_error(loaded: dict[str, Any], key: str, want: Any) -> Optional[str]:
+    """What is wrong with one top-level key of a settings file, or None."""
+    if key not in loaded:
+        return f"has no {key!r}"
+    got = loaded[key]
+    if _json_type(got) != _json_type(want):
+        return f"{key!r} is a JSON {_json_type(got)}, not a JSON {_json_type(want)}"
+    if not isinstance(want, (dict, list)):
+        return None
+    allowed = {_json_type(v) for v in _inner_values(want)}
+    wrong = sorted({_json_type(v) for v in _inner_values(got)} - allowed)
+    if allowed and wrong:
+        return f"{key!r} holds a JSON {wrong[0]}; its values must be: {', '.join(sorted(allowed))}"
+    return None
+
+
+def _check_settings_shape(loaded: dict[str, Any], path: str) -> None:
+    """Refuse a settings file whose top-level keys differ in type from the bundled default.
+
+    Each key of the default (except ``$comment``-style keys) must be present with
+    the same JSON type, and the values one level inside an object or array must
+    have the types the default's values have.
+    """
+    default, _ = load_default_settings()
+    for key, want in default.items():
+        if key.startswith("$"):
+            continue
+        problem = _shape_error(loaded, key, want)
+        if problem is not None:
+            raise CliError(EXIT_USER_ERROR, f"settings file {path!r} {problem}", _SETTINGS_HINT)
 
 
 # --- one run ------------------------------------------------------------------
@@ -94,10 +150,27 @@ def _disagreements(own: Optional[dict[str, Any]], report: dict[str, Any]) -> lis
     return found
 
 
-def _outcomes(items: list[dict[str, Any]]) -> dict[str, int]:
-    """How many of the run's conclusions the re-check accepted and how many it refused."""
-    accepted = sum(1 for item in items if item.get("outcome") == "accepted")
-    return {"accepted": accepted, "refused": len(items) - accepted}
+def _outcome_key(outcome: dict[str, Any], stated: Any) -> str:
+    if outcome.get("outcome") != "accepted":
+        return "refused"
+    return "backed" if stated in _DECIDED else "open"
+
+
+def _outcomes(items: list[dict[str, Any]], payload: Optional[dict[str, Any]]) -> dict[str, int]:
+    """How many conclusions the re-check backed, left open (accepted, but stated open or
+    cannot tell) and refused.
+
+    The stated verdict comes from the run's payload. The checker returns one outcome
+    per payload verdict in payload order, so the two are paired by position (which
+    is the pairing by verdict id, and stays right when an id repeats).
+    """
+    raw = (payload or {}).get("verdicts")
+    stated = [v.get("verdict") if isinstance(v, dict) else None for v in raw or []]
+    counts = dict.fromkeys(_OUTCOME_KEYS, 0)
+    for position, item in enumerate(items):
+        value = stated[position] if position < len(stated) else None
+        counts[_outcome_key(item, value)] += 1
+    return counts
 
 
 def _run_entry(
@@ -114,14 +187,16 @@ def _run_entry(
         entry["not_applicable_reason"] = result["not_applicable_reason"]
         if result.get("unsupported"):
             entry["unsupported"] = True
+        entry["unsupported_runs"] = result["unsupported_runs"]
         return entry
     report = result["report"]
     own = _own_report(export_dir)
     entry.update(
+        unsupported_runs=result["unsupported_runs"],
         facts=report["facts"],
         by_source_kind=report["by_source_kind"],
         conclusions=report["conclusions"],
-        conclusion_outcomes=_outcomes(result["verdicts"]),
+        conclusion_outcomes=_outcomes(result["verdicts"], load_export(export_dir)["payload"]),
         statements=report["statements"],
         own_report_found=own is not None,
         disagreements=_disagreements(own, report),
@@ -143,7 +218,7 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
     by_kind = {kind: empty_counts() for kind in SOURCE_KINDS}
     applicable = [e for e in entries if e["applicable"]]
     conclusions: dict[str, int] = {}
-    outcomes = {"accepted": 0, "refused": 0}
+    outcomes = dict.fromkeys(_OUTCOME_KEYS, 0)
     for entry in applicable:
         for key in outcomes:
             outcomes[key] += entry["conclusion_outcomes"][key]
@@ -182,7 +257,8 @@ def _write_flags(
         if flags_dir is not None:
             target = Path(flags_dir) / FLAGS_NAME
         else:
-            target = Path(entry["export"]).parent / FLAGS_SUBDIR / FLAGS_NAME
+            # Resolved first, so "." or a path ending in ".." still lands beside the export.
+            target = Path(entry["export"]).resolve().parent / FLAGS_SUBDIR / FLAGS_NAME
         groups.setdefault(target, []).append(slim)
     written: list[str] = []
     for target in sorted(groups):
@@ -219,7 +295,8 @@ def _conclusions_line(counts: dict[str, int], outcomes: dict[str, int]) -> str:
     stated = "  ".join(f"{key} {counts[key]}" for key in sorted(counts))
     return (
         f"  conclusions as the run stated them: {stated}; "
-        f"backed {outcomes['accepted']}, refused {outcomes['refused']}"
+        f"backed {outcomes['backed']}, left open {outcomes['open']}, "
+        f"refused {outcomes['refused']}"
     )
 
 
@@ -229,8 +306,16 @@ def _settings_line(settings: dict[str, Any]) -> str:
     return f"bundled default settings, version {settings['version']}"
 
 
+def _unsupported_run_lines(entry: dict[str, Any]) -> list[str]:
+    return [
+        f"  run {run['label']} not loaded: walk format {run['walk_format']!r} is not supported"
+        for run in entry.get("unsupported_runs", [])
+    ]
+
+
 def _render_run(entry: dict[str, Any]) -> list[str]:
     out = [f"export: {entry['export']} (walk format {entry['walk_format']})"]
+    out += _unsupported_run_lines(entry)
     if not entry["applicable"]:
         label = "unsupported" if entry.get("unsupported") else "not applicable"
         out.append(f"  {label}: {entry['not_applicable_reason']}")
@@ -292,11 +377,40 @@ def render(report: dict[str, Any]) -> str:
 # --- the verb -----------------------------------------------------------------
 
 
+def _unique_exports(exports: list[str]) -> list[str]:
+    """Each export once, as first spelled, ordered by its resolved path."""
+    first: dict[Path, str] = {}
+    for name in exports:
+        first.setdefault(Path(name).resolve(), name)
+    return [first[key] for key in sorted(first)]
+
+
+def _prior_from(continue_from: Optional[str], exports: list[str]) -> Optional[Path]:
+    """The --continue-from directory holding a walk (itself or its export/), checked."""
+    if continue_from is None:
+        return None
+    if len(exports) > 1:
+        raise CliError(
+            EXIT_USER_ERROR,
+            f"--continue-from names one prior run, but {len(exports)} exports were given",
+            "check each continued run on its own, with its own --continue-from",
+        )
+    prior = _prior_dir(Path(continue_from))
+    if prior is None:
+        raise CliError(
+            EXIT_USER_ERROR,
+            f"--continue-from {continue_from!r} holds no {WALK_FILENAME} (nor does its export/)",
+            "pass the export directory (or the session directory holding export/) of the "
+            "run this one continued from",
+        )
+    return prior
+
+
 def _inspect_all(
     exports: list[str], settings: dict[str, Any], prior: Optional[Path]
 ) -> list[dict[str, Any]]:
     entries = []
-    for name in sorted(set(exports)):
+    for name in exports:
         try:
             entries.append(_run_entry(Path(name), settings, prior))
         except ExportError as err:
@@ -311,8 +425,9 @@ def _inspect_all(
 def cmd_check(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     settings, described = _load_settings(getattr(args, "settings", None))
-    prior = Path(args.continue_from) if getattr(args, "continue_from", None) else None
-    entries = _inspect_all(list(args.exports), settings, prior)
+    exports = _unique_exports(list(args.exports))
+    prior = _prior_from(getattr(args, "continue_from", None), exports)
+    entries = _inspect_all(exports, settings, prior)
     flags_file = _write_flags(
         entries, getattr(args, "flags_dir", None), bool(getattr(args, "no_flags", False))
     )
@@ -325,11 +440,12 @@ def cmd_check(args: argparse.Namespace) -> int:
     }
     emit_result(report if json_mode else render(report), json_mode=json_mode)
     if not flags_file["written"] and flags_file.get("reason") != "--no-flags":
-        emit_diagnostic(
-            f"error: the flags file was not written ({flags_file['path']}): "
-            f"{flags_file['reason']}\n"
-            "hint: pass --flags-dir DIR to write it elsewhere, or --no-flags to skip it"
+        failure = CliError(
+            EXIT_ENV_ERROR,
+            f"the flags file was not written ({flags_file['path']}): {flags_file['reason']}",
+            "pass --flags-dir DIR to write it elsewhere, or --no-flags to skip it",
         )
+        emit_error(failure, json_mode=json_mode)
         return EXIT_ENV_ERROR
     return 0
 
