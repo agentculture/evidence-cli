@@ -46,6 +46,14 @@ Each is one run, not a rate. Beyond that, say "built and unit-tested", never
   read-only on the export and writes a reviewer flags file in the directory that
   holds the export (`--flags-dir` moves it, `--no-flags` skips it). Code:
   `evidence/accuracy/`, command `evidence/cli/_commands/check.py`.
+- **What the link guard covers, precisely.** The export's own files
+  (`walk.jsonl`, `facts.json`, `results/wN.txt`, `report.json`, `check.json`,
+  `answer.md`) are never read through a link pointing outside it. A child run
+  or a `--continue-from` run is another directory, named by the walk (a
+  `child` line's `child_walk`, a relative one taken from the export directory)
+  or by the operator, and is read from where it is: it is not confined to the
+  export. A prior or child run whose walk format is not supported is not
+  loaded and is listed under `unsupported_runs`.
 - **`evidence grade --answer-file F --expected F`, the answer check.** Matches an
   answer text against expected values (`must_appear`, `must_not_appear`,
   `one_of`; schema in `evidence/data/expected_values.schema.json`) and returns

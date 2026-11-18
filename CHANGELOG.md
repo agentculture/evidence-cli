@@ -20,25 +20,53 @@ first one with content of its own.
   the saved files, reports counts per kind and per source kind, reports any
   disagreement with the counts in the run's own `report.json`, and sums over the
   runs where facts apply. It is read-only on the export and writes a reviewer
-  flags file beside it. It also reports how many of a run's stated conclusions
-  the re-check backed and how many it refused. One live test is recorded in
+  flags file beside it (beside the resolved export path, so `evidence check .`
+  run from inside an export does not write into it). It also reports how many
+  of a run's stated conclusions the re-check backed (accepted and stated
+  supported or refuted), left open (accepted and stated open or cannot tell)
+  and refused (`conclusion_outcomes`: `backed`, `open`, `refused`). Exports are
+  counted once per resolved path. `--continue-from` takes one export only and
+  must name a directory holding `walk.jsonl` (or its `export/`). A `--settings`
+  file whose keys differ in JSON type from the bundled default is refused,
+  naming the key. Under `--json` a flags-file failure is one
+  `{code, message, remediation}` object on stderr. One live test is recorded in
   `docs/notes/2026-11-18-live-test.md`: six associate runs, three of which
   handed back facts; each is one run, not a rate.
 - **`evidence grade`, the answer check.** Matches an answer text against
   recorded expected values (`must_appear`, `must_not_appear`, `one_of`) and
   returns `matches`, `does_not_match` or `cannot_tell`. It is a separate result
   from the run check and is an internal measurement, not a benchmark score.
+  Only whitespace is collapsed before matching: a line starting with a number
+  and a tab keeps the number (the quote matcher's read-line-stamp stripping is
+  not applied to answers).
 - **The hand-back checker, export loader, counts and quote matcher**, moved from
   the associate repository (`agentculture/associate`) at commit `266dad3`,
   directory `associate/accuracy/`, into `evidence/accuracy/`, with the shared
   matcher vectors and the bundled default settings under `evidence/data/`.
-  Standard library only. Two behaviours differ from the code as it was in
-  associate: an export whose walk format is newer than supported is reported as
-  unsupported, and no file of an export is read through a symbolic link that
-  points outside the export directory (`facts.json` or `walk.jsonl` linked from
-  outside is an error; `report.json`, `check.json` and `answer.md` linked from
-  outside are treated as absent). associate at `266dad3` guards only the saved
-  result files.
+  Standard library only. These behaviours differ from the code as it was in
+  associate:
+  - An export whose walk format is newer than supported is reported as
+    unsupported, and the format is tested before anything else of the export
+    is read. A format marker whose version is not a positive integer is
+    unsupported too, the value named; a line with a `format` key is the marker
+    even with other keys.
+  - The export's own files are never read through a link pointing outside it
+    (`facts.json` or `walk.jsonl` linked from outside is an error;
+    `report.json`, `check.json` and `answer.md` linked from outside are treated
+    as absent). associate at `266dad3` guards only the saved result files. A
+    child run or a `--continue-from` run is another directory, named by the
+    walk or the operator, and is read from where it is.
+  - A relative `child_walk` is taken from the export directory, not the
+    process's working directory.
+  - A prior or child run whose walk format is not supported is not loaded (a
+    fact citing it is refused as an unknown source) and is listed under
+    `unsupported_runs`.
+  - A walk line that is not UTF-8 (cut mid character by a killed run) is
+    skipped like a line that is not JSON, instead of failing the check.
+  - JSON nested too deeply for the json module is handled: in a walk line it is
+    skipped, in `facts.json` it is an export error, in `check.json` or
+    `report.json` the file is treated as absent, a saved result is then text,
+    and a `delegate_status` result is then not first-hand.
 - **`evidence/answer/`**, the answer check library, with the expected-values
   schema (`evidence/data/expected_values.schema.json`, schema version 1).
 - **`docs/library.md`**, the public library names with their modules, and

@@ -51,3 +51,18 @@ def test_readme_names_both_commands_and_the_trail_line() -> None:
     assert "evidence grade" in text
     assert "a complete trail does not mean the work is correct" in text
     assert "groundwork" in text
+
+
+def test_readme_records_the_live_test_as_claude_md_does() -> None:
+    text = " ".join(_read("README.md").split())
+    assert "run against live model output yet" not in text
+    assert "docs/notes/2026-11-18-live-test.md" in text
+    assert "six associate runs, three of which handed back facts" in text
+    assert "not a rate" in text
+
+
+def test_docs_say_what_the_link_guard_covers_and_what_it_does_not() -> None:
+    for name in ("CLAUDE.md", "CHANGELOG.md"):
+        text = " ".join(_read(name).split())
+        assert "never read through a link pointing outside it" in text, name
+        assert "is read from where it is" in text, name

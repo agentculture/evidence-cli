@@ -9,7 +9,16 @@ for runs of an agent harness:
 - **`evidence grade`, the answer check** matches an answer text against recorded
   expected values and says `matches`, `does_not_match` or `cannot_tell`.
 
-The two are separate results and are never folded together. Both commands print the line "a complete trail does not mean the work is correct". A passed fact means its quote was found, not that the value is true, and the answer check is an internal measurement, not a benchmark score. Both are built and unit-tested; neither has been run against live model output yet.
+The two are separate results and are never folded together. Both commands
+print the line "a complete trail does not mean the work is correct". A passed
+fact means its quote was found, not that the value is true, and the answer check
+is an internal measurement, not a benchmark score.
+
+Both are built and unit-tested. One live test is recorded in
+[`docs/notes/2026-11-18-live-test.md`](docs/notes/2026-11-18-live-test.md): six
+associate runs, three of which handed back facts. On those three the run check
+printed the same counts as `associate check`, and the answer check agreed with a
+hand reading. Each is one run, not a rate.
 
 Before 0.7.0 this package was the `culture-agent-template` scaffold. The run
 check code was moved from [associate](https://github.com/agentculture/associate)
