@@ -85,7 +85,8 @@ _WS = re.compile(r"[ \t\n\r\f\v]")
 _SECOND_HAND = frozenset({"agent", "memory"})
 _DELEGATE_STATUS = "delegate_status"
 #: Result fields holding the child's own words: its final message and the rendered answer.
-_CHILD_ACCOUNT_KEYS = ("final_reply", "answer")
+#: associate now writes ``unchecked_final_reply`` in place of ``final_reply``; both are read.
+_CHILD_ACCOUNT_KEYS = ("final_reply", "answer", "unchecked_final_reply")
 
 
 def parse_source_ref(ref: Any) -> dict[str, Any]:

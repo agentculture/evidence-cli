@@ -447,6 +447,39 @@ def test_a_delegate_status_quote_from_the_rendered_answer_is_second_hand():
     assert facts[1]["first_hand"] is True
 
 
+def test_a_delegate_status_quote_from_unchecked_final_reply_is_second_hand():
+    """associate now writes `unchecked_final_reply` in place of `final_reply`."""
+    text = json.dumps(
+        {
+            "ok": True,
+            "result": {
+                "outcome": "ok",
+                "merge": "merged",
+                "unchecked_final_reply": "the child says every test passed here",
+            },
+        },
+        separators=(",", ":"),
+    )
+    handback = {
+        "payload": {
+            "facts": [
+                {"id": "f1", "value": "passed", "source": "w1", "quote": "every test passed here"},
+                {"id": "f2", "value": "merged", "source": "w1", "quote": '"merge":"merged"'},
+            ]
+        },
+        "entries": [{"id": "w1", "tool": "delegate_status", "saved_result": "results/w1.txt"}],
+        "results": {"w1": text},
+    }
+    facts = check_mod.check_handback(handback, ACCURACY)["facts"]
+    assert facts[0]["verdict"] == "passed"
+    assert facts[0]["first_hand"] is False
+    assert facts[1]["first_hand"] is True
+
+
+def test_the_child_account_keys_keep_the_old_names_and_add_the_new_one():
+    assert check_mod._CHILD_ACCOUNT_KEYS == ("final_reply", "answer", "unchecked_final_reply")
+
+
 # --- the public names and the import rule ---------------------------------------------
 
 PUBLIC = {
