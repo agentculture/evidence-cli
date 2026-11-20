@@ -162,3 +162,71 @@ def test_explain_and_learn_describe_the_strict_re_check(capsys):
     assert "strict" in learned
     check = next(c for c in json.loads(learned_json)["commands"] if c["path"] == ["check"])
     assert "strict" in check["summary"]
+
+
+# --- review findings -------------------------------------------------------------------------
+
+
+def test_each_disagreement_is_a_flag_and_counted_in_the_sums(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    record["facts"][1]["strict_outcome"] = "pass"
+    record["accepted"] = False
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    flags_dir = tmp_path / "flags"
+    code, out, err = run(capsys, ["check", "--flags-dir", str(flags_dir), str(export)])
+    assert (code, err) == (0, "")
+    flags = json.loads((flags_dir / "flags.json").read_text(encoding="utf-8"))["runs"][0]["flags"]
+    assert flags == [
+        {
+            "check": "strict_record_disagrees",
+            "detail": "f2 strict_outcome: check.json 'pass', re-check 'dropped'",
+            "ref": "w1",
+        },
+        {
+            "check": "strict_record_disagrees",
+            "detail": "accepted: check.json False, re-check True",
+        },
+    ]
+    assert out.rstrip("\n").splitlines()[-1] == (
+        "strict re-check: 2 disagreement(s) with the exports' own check.json"
+    )
+    _, js, _ = run(capsys, ["check", "--no-flags", "--json", str(export)])
+    assert json.loads(js)["sums"]["strict_disagreements"] == 2
+
+
+def test_an_agreeing_strict_run_writes_an_empty_flags_list_like_a_plain_run(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    flags_dir = tmp_path / "flags"
+    run(capsys, ["check", "--flags-dir", str(flags_dir), str(export)])
+    written = json.loads((flags_dir / "flags.json").read_text(encoding="utf-8"))
+    assert written == {"runs": [{"export": str(export), "flags": []}]}
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert out.rstrip("\n").splitlines()[-1] == (
+        "strict re-check: 0 disagreement(s) with the exports' own check.json"
+    )
+
+
+def test_the_agreement_line_names_what_was_compared(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    record["strict"].pop("judge_counts")
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert (
+        "  agrees with the export's own check.json on: facts, verdicts, open_items, accepted, "
+        "counts, drop_reasons" in out
+    )
+    assert "  not compared (absent from check.json): judge_counts" in out
+
+
+def test_a_malformed_record_is_a_user_error(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    record["facts"][0].pop("id")
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    code, out, err = run(capsys, ["check", "--no-flags", str(export)])
+    assert code == 1
+    assert out == ""
+    assert "check.json fact record 1" in err
+    assert "Traceback" not in err

@@ -21,14 +21,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Re-checking a stored strict export** (`evidence/accuracy/strict_export.py`):
   the input is rebuilt from `walk.jsonl`, `results/`, `facts.json` and
   `check.json`, and the result is compared with what the export's own
-  `check.json` recorded, field by field. `check.json` does not record the ids
+  `check.json` recorded: per fact the kind checked, outcome and drop reason;
+  per verdict and open item the id, outcome, reason, strict outcome and strict
+  reason; `accepted`; and the strict counts, drop reasons and judge counts. The
+  result names the parts compared and any the record does not hold. Stored
+  decider answers are matched to facts by position (by id when the records do
+  not line up), so two facts sharing an id keep their own answers. A malformed
+  fact record or a redaction pattern Python cannot compile is reported as an
+  error about the export or settings. `check.json` does not record the ids
   returned in earlier rounds, so facts it records as kept with the mark stand
   for them.
+- The strict re-check's default contract values, used when the settings hold no
+  well-formed `strict` block, are in this package's own
+  `evidence/data/strict_defaults.json` (equal to what every shared case uses
+  today). A caller's `strict` block is used whenever it is well formed; a
+  support pass list is not required (the re-check does not read it).
 - `evidence check` prints the strict re-check for an export whose `check.json`
   says `"mode": "strict"`: each fact's id, source, kind checked, outcome and
   drop reason, the counts, and whether it agrees with the export's own record,
-  with each disagreement. `--json` carries the same. A strict run is not added
-  to the quote sums.
+  with each disagreement. Each disagreement is also written as a reviewer flag
+  (`strict_record_disagrees`). It does not change the exit code (as a
+  disagreement with `report.json` does not); the count is in the `--json` sums
+  and in the last line printed. `--json` carries the same. A strict run is not
+  added to the quote sums.
 - The new public names are in `docs/library.md`.
 
 A fact with outcome pass had its evidence copied from a saved result or its

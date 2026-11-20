@@ -59,7 +59,32 @@ export.
 | `evidence.accuracy.strict_export` | `recheck_strict_export` | Re-check a stored strict export and compare it with the export's own `check.json`. | yes |
 | `evidence.accuracy.strict_export` | `strict_export_input` | The strict re-check's input, rebuilt from a stored strict export. | no |
 | `evidence.accuracy.strict_export` | `strict_settings` | The contract values and redaction filter the strict re-check reads from given settings. | no |
+| `evidence.accuracy.strict_export` | `load_strict_defaults` | The bundled default strict contract values (`evidence/data/strict_defaults.json`). | no |
+| `evidence.accuracy.strict_export` | `compare_with_record` | Compare a re-check with an export's `check.json`, part by part. | no |
+| `evidence.accuracy.command` | `compile_redaction` | Compile a redaction filter's patterns; a pattern Python cannot compile raises `ValueError` naming it. | no |
 | `evidence.accuracy.vectors` | `load_strict_vectors` | The shared strict cases shipped in the package. | yes |
+
+Settings: `strict_settings` uses the caller's `strict` block whenever it is
+well formed (`keep_marked` and `drop` are lists), whatever else the settings
+hold, and otherwise the bundled defaults; the result's `strict_source` says
+which. The support pass list (`support_passes`, or `support_score.passes`) is
+not required and is not read by the re-check: a support answer named in no
+strict list passes. A redaction pattern Python cannot compile is an
+`ExportError` naming it.
+
+`strict_recheck` also accepts `decider_by_position` in its input (one stored
+answer or null per fact, in hand-back order); an entry there is used in place of
+the answer keyed by fact id, so two facts sharing an id keep their own answers.
+`recheck_strict_export` fills it when `check.json`'s fact records line up with
+the payload's facts, and falls back to ids otherwise. The shared cases do not
+use it.
+
+`recheck_strict_export` compares, per fact, the kind checked, outcome and drop
+reason; per verdict and open item, the id, outcome, reason, strict outcome and
+strict reason; `accepted`; and the `strict` object's `counts`, `drop_reasons`
+and `judge_counts`. The result names the parts compared and those the record
+does not hold (`compared`, `not_compared`). A malformed fact record in
+`check.json` (not an object, or no string `id`) is an `ExportError`.
 
 `evidence.accuracy.check.inspect_export` and `accuracy_result` route an export
 whose `check.json` says strict to the strict re-check, and their result then

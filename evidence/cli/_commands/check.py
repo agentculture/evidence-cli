@@ -11,7 +11,11 @@ result it cites, nothing more.
 An export whose ``check.json`` says ``"mode": "strict"`` is re-checked by the
 strict re-check instead: per fact its id, source, kind checked, outcome and drop
 reason, the counts, and whether the re-check agrees with the export's own
-record, each disagreement listed. A strict run is not added to the quote sums.
+record (the parts compared named, each disagreement listed and written as a
+reviewer flag). A strict run is not added to the quote sums. A disagreement does
+not change the exit code, as a disagreement with ``report.json`` does not: the
+documented non-zero codes are a user error (1) and an environment error (2).
+The count of disagreements is in the ``--json`` sums and in the last line.
 A fact with outcome pass had its evidence copied from a saved result or its
 quote found in one; a judged fact carries the decider's stored answer.
 
@@ -37,6 +41,7 @@ from evidence.accuracy.check import (
     inspect_export,
     load_default_settings,
     load_export,
+    parse_source_ref,
 )
 from evidence.accuracy.counts import SOURCE_KINDS, empty_counts
 from evidence.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
@@ -51,6 +56,8 @@ _DECIDED = ("supported", "refuted")
 _OUTCOME_KEYS = ("backed", "open", "refused")
 _SETTINGS_HINT = "pass a JSON object shaped like the bundled default, or omit --settings"
 STRICT = "strict"
+#: The flag ``check`` for a strict re-check that disagrees with the export's own record.
+STRICT_FLAG = "strict_record_disagrees"
 _STRICT_NOTE_LINES = (
     "strict: pass means the evidence was copied from a saved result or its quote was found in",
     "one; a judged fact carries the decider's stored answer. Neither says a value is true.",
@@ -205,6 +212,30 @@ def _item_data(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _difference_text(diff: dict[str, Any]) -> str:
+    where = f"{diff['id']} " if diff["id"] is not None else ""
+    return f"{where}{diff['field']}: check.json {diff['recorded']!r}, re-check {diff['recheck']!r}"
+
+
+def _strict_flags(comparison: dict[str, Any]) -> list[dict[str, str]]:
+    """One reviewer flag per disagreement, in the shape of the run check's flags.
+
+    A flag on a fact field carries the fact's source as ``ref``; one on a
+    verdict, an open item or a count carries none.
+    """
+    sources = {}
+    for row in comparison["facts"]:
+        sources.setdefault(row["id"], row["source"])
+    flags = []
+    for diff in comparison["disagreements"]:
+        flag = {"check": STRICT_FLAG, "detail": _difference_text(diff)}
+        source = sources.get(diff["id"]) if "." not in diff["field"] else None
+        if source is not None and parse_source_ref(source)["ok"]:
+            flag["ref"] = source
+        flags.append(flag)
+    return flags
+
+
 def _strict_entry(export_dir: Path, result: dict[str, Any]) -> dict[str, Any]:
     """The strict re-check of one export, as the report carries it."""
     strict = result["strict"]
@@ -224,8 +255,10 @@ def _strict_entry(export_dir: Path, result: dict[str, Any]) -> dict[str, Any]:
         "judge_counts": recheck["judge_counts"],
         "report": recheck["report"],
         "agrees": comparison["agrees"],
+        "compared": comparison["compared"],
+        "not_compared": comparison["not_compared"],
         "disagreements": comparison["disagreements"],
-        "flags": [],
+        "flags": _strict_flags(comparison),
     }
 
 
@@ -293,15 +326,19 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "not_applicable": len(entries) - len(applicable) - unsupported - strict,
         "unsupported": unsupported,
     }
-    if strict:  # only present when a strict run was given, so other reports are unchanged
-        runs["strict"] = strict
-    return {
+    sums = {
         "runs": runs,
         "facts": facts,
         "by_source_kind": by_kind,
         "conclusions": conclusions,
         "conclusion_outcomes": outcomes,
     }
+    if strict:  # only present when a strict run was given, so other reports are unchanged
+        runs["strict"] = strict
+        sums["strict_disagreements"] = sum(
+            len(e["disagreements"]) for e in entries if e.get("check") == STRICT
+        )
+    return sums
 
 
 # --- the flags file -----------------------------------------------------------
@@ -388,11 +425,7 @@ def _pairs(counts: dict[str, int]) -> str:
 
 
 def _disagreement_line(diff: dict[str, Any]) -> str:
-    where = f"{diff['id']} " if diff["id"] is not None else ""
-    return (
-        f"  disagreement {where}{diff['field']}: check.json {diff['recorded']!r}, "
-        f"re-check {diff['recheck']!r}"
-    )
+    return f"  disagreement {_difference_text(diff)}"
 
 
 def _render_strict(entry: dict[str, Any]) -> list[str]:
@@ -407,11 +440,18 @@ def _render_strict(entry: dict[str, Any]) -> list[str]:
             out.append(f"  {kind[:-1].replace('_', ' ')} {item['id']}: {item['outcome']}{reason}")
     out.append(f"  counts: {_pairs(entry['counts'])}")
     out.append(f"  drop reasons: {_pairs(entry['drop_reasons'])}")
+    compared = ", ".join(entry["compared"])
     if entry["agrees"]:
-        out.append("  agrees with the export's own check.json")
+        out.append(f"  agrees with the export's own check.json on: {compared}")
     else:
-        out.append(f"  disagrees with the export's own check.json ({len(entry['disagreements'])}):")
+        count = len(entry["disagreements"])
+        out.append(
+            f"  disagrees with the export's own check.json ({count}): compared on {compared}"
+        )
         out += [_disagreement_line(diff) for diff in entry["disagreements"]]
+    if entry["not_compared"]:
+        absent = ", ".join(entry["not_compared"])
+        out.append(f"  not compared (absent from check.json): {absent}")
     return out
 
 
@@ -478,6 +518,12 @@ def render(report: dict[str, Any]) -> str:
     if runs.get("strict"):
         out += _STRICT_NOTE_LINES
     out.append(NOTE)
+    if runs.get("strict"):
+        # Kept last: a disagreement does not change the exit code (see the module text).
+        out.append(
+            f"strict re-check: {report['sums']['strict_disagreements']} disagreement(s) "
+            "with the exports' own check.json"
+        )
     return "\n".join(out)
 
 

@@ -132,7 +132,8 @@ evidence/
 ├── answer/              # answer check: grade.py, schema.py
 ├── explain/             # resolve(path) / known_paths(); catalog.py ENTRIES
 └── data/                # matcher_vectors.json, strict_vectors.json,
-                         #   accuracy_defaults.json, expected_values.schema.json
+                         #   strict_defaults.json, accuracy_defaults.json,
+                         #   expected_values.schema.json
                          #   (ship in the wheel)
 tests/                   # pytest; fixtures/ holds copied exports and answers
 docs/                    # library.md, skill-sources.md, specs/, plans/
