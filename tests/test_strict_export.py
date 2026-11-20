@@ -55,7 +55,8 @@ def test_the_copied_fixture_holds_no_machine_path():
     for path in FIXTURE.rglob("*"):
         if path.is_file():
             text = path.read_text(encoding="utf-8")
-            assert "/home/" not in text and "/Users/" not in text, path.name
+            assert "/home/" not in text, path.name
+            assert "/Users/" not in text, path.name
 
 
 def test_the_copied_fixture_is_a_strict_export_and_a_plain_one_is_not(tmp_path):
@@ -78,7 +79,8 @@ def test_the_copied_fixture_agrees_with_its_own_record():
         ("f2", "w1", True),
     ]
     assert got["recheck"]["counts"] == got["recorded"]["counts"]
-    assert got["accepted"] is True and got["recorded"]["accepted"] is True
+    assert got["accepted"] is True
+    assert got["recorded"]["accepted"] is True
 
 
 def test_the_copied_fixture_copies_the_same_evidence_as_its_record():
@@ -86,7 +88,8 @@ def test_the_copied_fixture_copies_the_same_evidence_as_its_record():
     recorded = json.loads((FIXTURE / "check.json").read_text(encoding="utf-8"))["facts"]
     for mine, theirs in zip(got, recorded):
         assert mine["evidence"] == theirs["evidence"]
-    assert got[0]["judge"] is None and recorded[0]["judge"] is None
+    assert got[0]["judge"] is None
+    assert recorded[0]["judge"] is None
     assert got[1]["judge"]["option"] == recorded[1]["judge"]["option"] == "none"
 
 
@@ -266,7 +269,8 @@ def test_a_non_strict_export_has_no_check_key(tmp_path):
     export = copy_fixture(tmp_path)
     edit_check(export, lambda r: r.update(mode="report"))
     got = inspect_export(export, SETTINGS)
-    assert "check" not in got and "strict" not in got
+    assert "check" not in got
+    assert "strict" not in got
     # Read by the quote check, a strict fact (``at``, no quote) has an empty quote.
     assert {f["reason"] for f in got["facts"]} == {"quote_short"}
 

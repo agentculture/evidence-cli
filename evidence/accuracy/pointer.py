@@ -29,7 +29,7 @@ _STAMP = re.compile(r"^(\d+)\t", re.ASCII)
 _NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?", re.ASCII)
 _CUT = "result_cut"
 #: The only saved result names a pointer reads, as in the extension (``results/wN.txt``).
-SAVED_NAME = re.compile(r"results/w[1-9][0-9]*\.txt", re.ASCII)  # used with fullmatch
+SAVED_NAME = re.compile(r"results/w[1-9]\d*\.txt", re.ASCII)  # used with fullmatch
 
 
 @dataclass(frozen=True)

@@ -51,14 +51,11 @@ _DECIDED = ("supported", "refuted")
 _OUTCOME_KEYS = ("backed", "open", "refused")
 _SETTINGS_HINT = "pass a JSON object shaped like the bundled default, or omit --settings"
 STRICT = "strict"
-STRICT_NOTE = (
-    "strict: pass means the evidence was copied from a saved result or its quote was found in "
-    "one; a judged fact carries the decider's stored answer. Neither says a value is true."
-)
 _STRICT_NOTE_LINES = (
     "strict: pass means the evidence was copied from a saved result or its quote was found in",
     "one; a judged fact carries the decider's stored answer. Neither says a value is true.",
 )
+STRICT_NOTE = " ".join(_STRICT_NOTE_LINES)
 
 # --- settings -----------------------------------------------------------------
 

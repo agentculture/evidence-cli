@@ -12,7 +12,7 @@ import copy
 from typing import Any
 
 from evidence.accuracy.command import js_items, js_trim, render_command
-from evidence.accuracy.pointer import number_tokens, resolve, split_lines
+from evidence.accuracy.pointer import SAVED_NAME, number_tokens, resolve, split_lines
 from evidence.accuracy.strict import strict_recheck
 from evidence.accuracy.vectors import load_strict_vectors
 
@@ -218,18 +218,18 @@ def test_a_partial_stamped_read_past_the_last_stamp_is_cut():
 
 
 def test_a_pointer_with_both_or_neither_key_is_malformed():
-    for at in ({"lines": [1, 1], "search": "a"}, {}, {"lines": [2, 1]}, {"search": " 　"}):
+    for at in ({"lines": [1, 1], "search": "a"}, {}, {"lines": [2, 1]}, {"search": " \u3000"}):
         assert resolve(at, "a\n", "ls", False) == (None, "pointer_malformed")
 
 
 def test_number_tokens_follow_the_note():
     assert number_tokens("1,234 and 0.50 in w12, v1.5.2") == ["1234", "0.50", "12", "1.5", "2"]
-    assert number_tokens("١٢٣") == []
+    assert number_tokens("\u0661\u0662\u0663") == []
 
 
 def test_js_trim_keeps_what_python_strip_would_remove():
     assert js_trim("\x1c a \x85") == "\x1c a \x85"
-    assert js_trim("　a﻿") == "a"
+    assert js_trim("\u3000a\ufeff") == "a"
 
 
 # --- the command --------------------------------------------------------------------------------
@@ -277,3 +277,19 @@ def test_bash_without_a_string_argv_prints_its_keys():
 
 def test_a_tool_with_no_arguments_prints_its_name_alone():
     assert command({"tool": "finish", "args": {"purpose": "done"}}) == "finish"
+
+
+# --- ASCII digits only ------------------------------------------------------------
+
+
+def test_a_saved_result_name_with_a_non_ascii_digit_is_not_read():
+    assert SAVED_NAME.fullmatch("results/w12.txt") is not None
+    for digit in ("\uff11", "\u0661"):  # fullwidth one, Arabic-Indic one
+        assert SAVED_NAME.fullmatch(f"results/w1{digit}.txt") is None
+
+
+def test_an_array_index_key_is_ascii_digits_only():
+    assert [k for k, _ in js_items({"b": 1, "12": 2})] == ["12", "b"]
+    for digit in ("\uff11", "\u0661"):
+        key = f"1{digit}"
+        assert [k for k, _ in js_items({"b": 1, key: 2})] == ["b", key]

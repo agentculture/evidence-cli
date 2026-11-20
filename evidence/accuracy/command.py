@@ -36,10 +36,26 @@ _SAFE_TOKEN = re.compile(r"[A-Za-z0-9_@%+=:,./~-]+", re.ASCII)  # used with full
 _WORKTREE_ROOT = re.compile(r"^(.*)/\.worktrees\.([^/]+)/[^/]+$")
 _HOME = re.compile(r"(?:/home/[^/\s\"'`]+|/Users/[^/\s\"'`]+|/root)(?=[/\s\"'`]|$)")
 _CASE_INSENSITIVE = "(?i)"
-_ARRAY_INDEX = re.compile(r"0|[1-9][0-9]*", re.ASCII)  # used with fullmatch
+# re.ASCII: \d is 0-9 only, as an ECMAScript array index is.
+_ARRAY_INDEX = re.compile(r"0|[1-9]\d*", re.ASCII)  # used with fullmatch
 _MAX_ARRAY_INDEX = 2**32 - 2
 #: ECMAScript String.prototype.trim's set: WhiteSpace and LineTerminator (not \x1c-\x1f, \x85).
-_JS_TRIM = "\t\n\v\f\r          " "        　﻿"
+_JS_TRIM = "".join(
+    chr(code)
+    for code in (
+        *range(0x09, 0x0E),  # tab, line feed, vertical tab, form feed, carriage return
+        0x20,
+        0xA0,
+        0x1680,
+        *range(0x2000, 0x200B),
+        0x2028,
+        0x2029,
+        0x202F,
+        0x205F,
+        0x3000,
+        0xFEFF,
+    )
+)
 
 
 def js_trim(text: str) -> str:

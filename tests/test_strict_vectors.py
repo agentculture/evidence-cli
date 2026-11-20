@@ -83,9 +83,9 @@ def test_the_difference_helper_names_the_field():
 
 def test_the_recheck_is_pure_same_input_same_result():
     case = CASES[0]
-    assert strict_recheck(case["input"], VECTORS["redaction"]) == strict_recheck(
-        case["input"], VECTORS["redaction"]
-    )
+    first = strict_recheck(case["input"], VECTORS["redaction"])
+    second = strict_recheck(case["input"], VECTORS["redaction"])
+    assert first == second
 
 
 def test_the_recheck_does_not_change_its_input():
