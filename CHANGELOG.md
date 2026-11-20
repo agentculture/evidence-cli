@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.1] - 2026-11-20
+## [0.9.0] - 2026-11-20
+
+A minor release, not a patch: a value in `recheck_strict_export`'s result
+changed type (see "Changed (callers must check)").
 
 ### Added
 
@@ -17,13 +20,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `returned_before_source` is `check.json`. An export without the key is read
   as before (the facts recorded as kept with the mark while a round was left
   stand in, and that one point cannot disagree); `returned_before_source` is
-  then `inferred from keep_marked`. `evidence check` prints which it was.
-- `accuracy_result(..., with_strict=True)` adds one key, `strict`: the whole
-  strict re-check with its comparison, from the one re-check the call already
-  ran (None for an export that is not strict or where facts do not apply).
-  Without the argument the result is unchanged.
+  then `inferred from keep_marked`. `evidence check` prints which it was. A
+  record without the key is not an incomplete record.
+- `accuracy_result(..., with_strict=True)` adds one key, `strict`: what
+  `recheck_strict_export` returns for the same export, from the one re-check
+  the call already ran, the not applicable result included. It is `None` only
+  for an export that is not strict. Without the argument the result is
+  unchanged.
 - `load_export` and `load_handback_input` also return `result_files` (file name
   to text): the file each entry names and the file under the entry's own id.
+- A reviewer flag `strict_record_incomplete`, written by `evidence check` when
+  a part of `check.json` was not compared or a payload fact has no record.
+
+### Changed (callers must check)
+
+- **`recheck` can be `None`.** For a strict export where facts do not apply (a
+  walk format that is not supported, a walk with no format marker, no
+  `facts.json`), `recheck_strict_export` returns `applicable: false` with
+  `recheck`, `accepted` and `rounds_left` set to `None`. In 0.8.0 `recheck` was
+  always a dict. Test `applicable` before indexing `recheck`.
+- **`comparison.agrees` can be `null`.** It is `false` when there is any
+  disagreement row; `true` only when there is none and the `facts` part was
+  compared with a record for every payload fact; otherwise `null`, with
+  `agrees_reason` naming what was not compared. `null` is not agreement: test
+  `agrees is True`.
+- **New keys.** `recheck_strict_export`: `applicable`,
+  `not_applicable_reason`, `returned_before_source`, and `unsupported: true`
+  for an unsupported walk format. Its `comparison`: `agrees_reason`,
+  `not_compared_reasons`, `facts_without_record`, `incomplete`. The `facts`
+  disagreement row carries `without_record` and `not_in_payload`; when the two
+  counts are equal and the ids differ its field is `facts.ids`. `evidence check
+  --json` per strict run: `agrees_reason`, `returned_before_source`,
+  `not_compared_reasons`, `facts_without_record`, `incomplete`; in the sums,
+  `strict_not_compared` (the strict runs whose record is incomplete). No key
+  was renamed or removed.
+- **The new flag.** A record with a part not compared, or a fact without a
+  record, is never a clean run in the flags file: it carries one
+  `strict_record_incomplete` flag naming the parts or fact ids. A stripped
+  record (`{"mode": "strict"}`) had `agrees: false` and disagreement flags in
+  0.8.0; it now has `agrees: null` and this one flag.
+- **Fact records are paired with facts by id when positions do not line up.**
+  One pairing serves the stored answers and the comparison: by position when
+  the records line up with the payload's facts, else by id when no id is
+  repeated on either side, else not at all (the `facts` part is then not
+  compared and no stored answer is used). In 0.8.0 the comparison was by
+  position only.
 
 ### Changed
 
@@ -37,12 +78,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `results/<the entry's own id>.txt` whether or not the entry names that file,
   as the rules say (the shared case `saved_result_file_read`). An export
   written by associate's extension names each entry's own file, so its result
-  does not change.
-- `recheck_strict_export`'s result gains `applicable`, `not_applicable_reason`
-  and `returned_before_source`; its `comparison` gains `agrees_reason`.
-  `evidence check --json` gains `agrees_reason` and `returned_before_source`
-  per strict run and `strict_not_compared` in the sums. No key was renamed or
-  removed.
+  does not change. Only `results/wN.txt` names are ever opened, decided in one
+  place.
 - The description of the rules here follows associate's extended note: an
   object key of a command's arguments is redacted and its paths are not made
   relative, a backtick ends a path match, and `min_quote_length` must be a
@@ -53,20 +90,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Fixes #8.
 
 - **A part absent from `check.json` gives no disagreement rows.** A part listed
-  under `not_compared` yields no rows; a fact with no record of its own yields
-  no field rows (the `facts` count row reports the difference); a row whose
-  recorded and re-checked values are equal is never a disagreement. When the
-  record's `facts` are absent the decider's stored answers are absent with
-  them, so only `accepted` is still compared. When nothing could be compared,
-  `agrees` is `null` (it was `false`) and `agrees_reason` reads "nothing in
-  check.json could be compared"; `evidence check` prints "neither agrees nor
-  disagrees" with that reason and counts such runs on its last line. A fact
-  row's `agrees`, and `agrees_with_record` in `--json`, is `null` for a fact
-  with no record.
-- **A strict export with no `facts.json` is not applicable from both
-  `recheck_strict_export` and `inspect_export`,** with the same reason.
-  `recheck_strict_export` used to re-check zero facts and report count
-  disagreements.
+  under `not_compared` yields no rows, and `not_compared_reasons` says why it
+  is there. A row whose recorded and re-checked values are equal is never a
+  disagreement. A fact with no record of its own yields no field rows: it is
+  reported once, by the `facts` row naming it. The decider's stored answers
+  are in the fact records, so when any payload fact has no record the parts
+  that follow from the outcomes (verdicts, open items, counts, drop reasons,
+  judge counts) are not compared either.
+- **A strict export where facts do not apply is not applicable from both
+  `recheck_strict_export` and `inspect_export`,** with the same reason, decided
+  in one place: an unsupported or malformed walk format marker, no marker, or
+  no `facts.json`. `recheck_strict_export` used to re-check zero facts and
+  report count disagreements, and raised a bare `TypeError` on a marker with no
+  usable version. A malformed fact record is still an `ExportError` in every
+  one of these cases.
 - **The comparison is available from `accuracy_result`** (`with_strict=True`),
   so a caller wanting both no longer re-checks the export twice.
 

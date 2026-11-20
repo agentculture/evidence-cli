@@ -714,11 +714,21 @@ def _read_saved(export_dir: Path, root: Path, name: str) -> Optional[str]:
         return None
 
 
-def _saved_names(entry: Mapping[str, Any]) -> tuple[Optional[str], str]:
-    """The ``results/wN.txt`` name the entry gives (None when it gives none), and its own."""
-    saved = entry.get("saved_result")
-    named = saved if isinstance(saved, str) and _SAVED.match(saved) else None
-    return named, f"results/{entry['id']}.txt"
+def _allowed_name(name: Any) -> Optional[str]:
+    """*name* when it is a ``results/wN.txt`` name, the only kind ever opened, else None."""
+    return name if isinstance(name, str) and _SAVED.match(name) else None
+
+
+def _saved_names(entry: Mapping[str, Any]) -> tuple[Optional[str], Optional[str]]:
+    """The file the entry names in ``saved_result`` and the file under its own id.
+
+    This is the one place that decides which saved result files may be read:
+    each is a ``results/wN.txt`` name, or None (the entry names no such file,
+    or its id is not ``wN``).
+    """
+    entry_id = entry.get("id")
+    own = f"results/{entry_id}.txt" if isinstance(entry_id, str) else None
+    return _allowed_name(entry.get("saved_result")), _allowed_name(own)
 
 
 def _read_result_files(export_dir: Path, entries: list[dict[str, Any]]) -> dict[str, str]:
@@ -727,7 +737,7 @@ def _read_result_files(export_dir: Path, entries: list[dict[str, Any]]) -> dict[
     files: dict[str, str] = {}
     for entry in entries:
         for name in _saved_names(entry):
-            if name is None or name in files or not _SAVED.match(name):
+            if name is None or name in files:
                 continue
             text = _read_saved(export_dir, root, name)
             if text is not None:
@@ -942,9 +952,20 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
 
 
 def _not_applicable_reason(loaded: Mapping[str, Any]) -> Optional[str]:
-    if loaded["format"] < 2:
+    """Why facts do not apply to a loaded export, or None when they do.
+
+    The one decision both :func:`inspect_export` and the strict re-check use,
+    in this order: a walk format that is not supported (or a marker whose
+    version is not a positive integer, a missing one included), a walk with no
+    format marker, no facts file.
+    """
+    version = loaded.get("format")
+    reason = _format_reason(version)
+    if reason is not None:
+        return reason
+    if version < 2:
         return "pre-change export: the walk has no format marker, so it carries no facts"
-    if loaded["payload"] is None:
+    if loaded.get("payload") is None:
         return f"no {FACTS_FILENAME} in the export: no hand-back facts were written"
     return None
 
@@ -961,6 +982,11 @@ def _unsupported_reason(version: Any) -> str:
         f"unsupported export: walk format {version} is newer than the formats "
         f"this checker supports ({known}), so it is not checked"
     )
+
+
+def _format_reason(version: Any) -> Optional[str]:
+    """Why a walk format cannot be checked here, or None when it can."""
+    return None if _is_supported_format(version) else _unsupported_reason(version)
 
 
 def _unsupported_result(export_dir: Path, version: Any) -> dict[str, Any]:
@@ -1034,7 +1060,7 @@ def inspect_export(
     lines.
     """
     version, _ = _open_walk(Path(export_dir))
-    if not _is_supported_format(version):
+    if _format_reason(version) is not None:
         return _unsupported_result(export_dir, version)
     loaded = load_handback_input(export_dir, continue_from)
     calls = summarise_calls(loaded["entries"], accuracy)
@@ -1132,6 +1158,28 @@ def _fill_summary(summary: dict[str, Any], inspected: Mapping[str, Any], export_
     )
 
 
+def _strict_part(
+    export_dir: Path,
+    check: Optional[Mapping[str, Any]],
+    accuracy: Mapping[str, Any],
+    inspected: Mapping[str, Any],
+) -> Optional[dict[str, Any]]:
+    """``accuracy_result``'s ``strict`` key: None only for an export that is not strict."""
+    from evidence.accuracy import strict_export  # here: strict_export imports this module
+
+    if not strict_export.is_strict_record(check):
+        return None
+    if "strict" in inspected:
+        return inspected["strict"]
+    return strict_export.not_applicable_result(
+        export_dir,
+        check,
+        accuracy,
+        inspected["not_applicable_reason"],
+        unsupported=inspected.get("unsupported") is True,
+    )
+
+
 def accuracy_result(
     export_dir: Path,
     accuracy: Mapping[str, Any],
@@ -1154,11 +1202,14 @@ def accuracy_result(
     mode the extension recorded in ``check.json``.
 
     With *with_strict* true the result gains one key, ``strict``: for a strict
-    export where facts apply, the whole strict re-check with its comparison
-    against the export's own record (what
-    :func:`evidence.accuracy.strict_export.recheck_strict_export` returns, from
-    the one re-check this call already ran, with no checkout root); None for any
-    other export. Without it the result is what it was before the key existed.
+    export, what :func:`evidence.accuracy.strict_export.recheck_strict_export`
+    returns (with no checkout root), from the one re-check this call already
+    ran: the whole re-check with its comparison against the export's own
+    record, or the not applicable result (``applicable: false``, the reason,
+    ``recheck`` None) when facts do not apply. Where ``recheck_strict_export``
+    would raise an ``ExportError`` it is that same not applicable result with
+    the error as the reason. None only for an export that is not strict.
+    Without the argument the result is what it was before the key existed.
     """
     export_dir = Path(export_dir)
     check = _export_json(export_dir, CHECK_FILENAME)
@@ -1191,5 +1242,5 @@ def accuracy_result(
         "accuracy": summary,
     }
     if with_strict:
-        result["strict"] = inspected.get("strict")
+        result["strict"] = _strict_part(export_dir, check, accuracy, inspected)
     return result
