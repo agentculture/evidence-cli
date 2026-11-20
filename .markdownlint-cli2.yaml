@@ -21,3 +21,6 @@ ignores:
   - ".teken/**"
   # Vendored skills are cited verbatim from guildmaster — do not reformat them.
   - ".claude/skills/**"
+  # Copied run exports are test data held as associate wrote them (read stamps
+  # are hard tabs) — do not reformat them.
+  - "tests/fixtures/strict_export/**"

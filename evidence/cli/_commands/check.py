@@ -8,6 +8,13 @@ applicable; a walk format newer than supported is unsupported; neither adds to
 the sums. A fact counted as passed means its quote was found in the saved
 result it cites, nothing more.
 
+An export whose ``check.json`` says ``"mode": "strict"`` is re-checked by the
+strict re-check instead: per fact its id, source, kind checked, outcome and drop
+reason, the counts, and whether the re-check agrees with the export's own
+record, each disagreement listed. A strict run is not added to the quote sums.
+A fact with outcome pass had its evidence copied from a saved result or its
+quote found in one; a judged fact carries the decider's stored answer.
+
 Reviewer flags are written to ``evidence/flags.json`` in the directory that
 holds the export directory (never inside it). ``--flags-dir`` writes
 ``<dir>/flags.json`` instead and ``--no-flags`` writes nothing. If the file
@@ -43,6 +50,15 @@ _COMPARED_SECTIONS = ("facts", "conclusions")
 _DECIDED = ("supported", "refuted")
 _OUTCOME_KEYS = ("backed", "open", "refused")
 _SETTINGS_HINT = "pass a JSON object shaped like the bundled default, or omit --settings"
+STRICT = "strict"
+STRICT_NOTE = (
+    "strict: pass means the evidence was copied from a saved result or its quote was found in "
+    "one; a judged fact carries the decider's stored answer. Neither says a value is true."
+)
+_STRICT_NOTE_LINES = (
+    "strict: pass means the evidence was copied from a saved result or its quote was found in",
+    "one; a judged fact carries the decider's stored answer. Neither says a value is true.",
+)
 
 # --- settings -----------------------------------------------------------------
 
@@ -173,10 +189,55 @@ def _outcomes(items: list[dict[str, Any]], payload: Optional[dict[str, Any]]) ->
     return counts
 
 
+def _fact_line_data(row: dict[str, Any]) -> dict[str, Any]:
+    fields = row["fields"]
+    return {
+        "id": row["id"],
+        "source": row["source"],
+        "kind_checked": fields["kind_checked"]["recheck"],
+        "outcome": fields["strict_outcome"]["recheck"],
+        "drop_reason": fields["drop_reason"]["recheck"],
+        "agrees_with_record": row["agrees"],
+    }
+
+
+def _item_data(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {"id": i["id"], "outcome": i["strict_outcome"], "drop_reason": i["strict_reason"]}
+        for i in items
+    ]
+
+
+def _strict_entry(export_dir: Path, result: dict[str, Any]) -> dict[str, Any]:
+    """The strict re-check of one export, as the report carries it."""
+    strict = result["strict"]
+    recheck, comparison = strict["recheck"], strict["comparison"]
+    return {
+        "export": str(export_dir),
+        "walk_format": result["walk_format"],
+        "applicable": True,
+        "check": STRICT,
+        "unsupported_runs": result["unsupported_runs"],
+        "strict_source": strict["strict_source"],
+        "facts": [_fact_line_data(row) for row in comparison["facts"]],
+        "verdicts": _item_data(recheck["verdicts"]),
+        "open_items": _item_data(recheck["open_items"]),
+        "counts": recheck["counts"],
+        "drop_reasons": recheck["drop_reasons"],
+        "judge_counts": recheck["judge_counts"],
+        "report": recheck["report"],
+        "agrees": comparison["agrees"],
+        "disagreements": comparison["disagreements"],
+        "flags": [],
+    }
+
+
 def _run_entry(
     export_dir: Path, settings: dict[str, Any], continue_from: Optional[Path]
 ) -> dict[str, Any]:
     result = inspect_export(export_dir, settings, continue_from=continue_from)
+    if result.get("check") == STRICT:
+        return _strict_entry(export_dir, result)
     entry: dict[str, Any] = {
         "export": str(export_dir),
         "walk_format": result["walk_format"],
@@ -216,7 +277,8 @@ def _add(total: dict[str, int], counts: dict[str, int]) -> None:
 def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
     facts = empty_counts()
     by_kind = {kind: empty_counts() for kind in SOURCE_KINDS}
-    applicable = [e for e in entries if e["applicable"]]
+    strict = sum(1 for e in entries if e.get("check") == STRICT)
+    applicable = [e for e in entries if e["applicable"] and e.get("check") != STRICT]
     conclusions: dict[str, int] = {}
     outcomes = dict.fromkeys(_OUTCOME_KEYS, 0)
     for entry in applicable:
@@ -228,13 +290,16 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
         for kind in SOURCE_KINDS:
             _add(by_kind[kind], entry["by_source_kind"][kind])
     unsupported = sum(1 for e in entries if e.get("unsupported"))
+    runs = {
+        "given": len(entries),
+        "applicable": len(applicable),
+        "not_applicable": len(entries) - len(applicable) - unsupported - strict,
+        "unsupported": unsupported,
+    }
+    if strict:  # only present when a strict run was given, so other reports are unchanged
+        runs["strict"] = strict
     return {
-        "runs": {
-            "given": len(entries),
-            "applicable": len(applicable),
-            "not_applicable": len(entries) - len(applicable) - unsupported,
-            "unsupported": unsupported,
-        },
+        "runs": runs,
         "facts": facts,
         "by_source_kind": by_kind,
         "conclusions": conclusions,
@@ -313,9 +378,51 @@ def _unsupported_run_lines(entry: dict[str, Any]) -> list[str]:
     ]
 
 
+def _fact_line(fact: dict[str, Any]) -> str:
+    reason = f", drop reason {fact['drop_reason']}" if fact["drop_reason"] else ""
+    return (
+        f"  fact {fact['id']} (source {fact['source']}): checked {fact['kind_checked']}, "
+        f"outcome {fact['outcome']}{reason}"
+    )
+
+
+def _pairs(counts: dict[str, int]) -> str:
+    return "  ".join(f"{key} {value}" for key, value in counts.items()) or "none"
+
+
+def _disagreement_line(diff: dict[str, Any]) -> str:
+    where = f"{diff['id']} " if diff["id"] is not None else ""
+    return (
+        f"  disagreement {where}{diff['field']}: check.json {diff['recorded']!r}, "
+        f"re-check {diff['recheck']!r}"
+    )
+
+
+def _render_strict(entry: dict[str, Any]) -> list[str]:
+    out = [
+        "  strict re-check (check.json mode strict); "
+        f"strict contract values from: {entry['strict_source']}"
+    ]
+    out += [_fact_line(fact) for fact in entry["facts"]]
+    for kind in ("verdicts", "open_items"):
+        for item in entry[kind]:
+            reason = f", drop reason {item['drop_reason']}" if item["drop_reason"] else ""
+            out.append(f"  {kind[:-1].replace('_', ' ')} {item['id']}: {item['outcome']}{reason}")
+    out.append(f"  counts: {_pairs(entry['counts'])}")
+    out.append(f"  drop reasons: {_pairs(entry['drop_reasons'])}")
+    if entry["agrees"]:
+        out.append("  agrees with the export's own check.json")
+    else:
+        out.append(f"  disagrees with the export's own check.json ({len(entry['disagreements'])}):")
+        out += [_disagreement_line(diff) for diff in entry["disagreements"]]
+    return out
+
+
 def _render_run(entry: dict[str, Any]) -> list[str]:
     out = [f"export: {entry['export']} (walk format {entry['walk_format']})"]
     out += _unsupported_run_lines(entry)
+    if entry.get("check") == STRICT:
+        return out + _render_strict(entry)
     if not entry["applicable"]:
         label = "unsupported" if entry.get("unsupported") else "not applicable"
         out.append(f"  {label}: {entry['not_applicable_reason']}")
@@ -353,9 +460,10 @@ def render(report: dict[str, Any]) -> str:
     for entry in report["runs"]:
         out += _render_run(entry) + [""]
     runs = report["sums"]["runs"]
+    strict = f", {runs['strict']} strict, not summed here" if runs.get("strict") else ""
     out.append(
         f"Sums over {runs['applicable']} applicable run(s) of {runs['given']} given "
-        f"({runs['not_applicable']} not applicable, {runs['unsupported']} unsupported)"
+        f"({runs['not_applicable']} not applicable, {runs['unsupported']} unsupported{strict})"
     )
     out.append(_counts_line("all", report["sums"]["facts"]))
     for kind in SOURCE_KINDS:
@@ -369,8 +477,10 @@ def render(report: dict[str, Any]) -> str:
         "",
         "quote found means the quote was found in the saved result the fact cites; it is not",
         "a statement that the fact is true. Unchecked facts are never counted as quote found.",
-        NOTE,
     ]
+    if runs.get("strict"):
+        out += _STRICT_NOTE_LINES
+    out.append(NOTE)
     return "\n".join(out)
 
 
@@ -438,6 +548,8 @@ def cmd_check(args: argparse.Namespace) -> int:
         "flags_file": flags_file,
         "note": NOTE,
     }
+    if report["sums"]["runs"].get("strict"):
+        report["strict_note"] = STRICT_NOTE
     emit_result(report if json_mode else render(report), json_mode=json_mode)
     if not flags_file["written"] and flags_file.get("reason") != "--no-flags":
         failure = CliError(
@@ -453,7 +565,10 @@ def cmd_check(args: argparse.Namespace) -> int:
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser(
         "check",
-        help="Run check: counts of checked quotes and backed conclusions for run exports.",
+        help=(
+            "Run check: counts of checked quotes and backed conclusions for run exports; "
+            "a strict export gets the strict re-check."
+        ),
     )
     p.add_argument("exports", nargs="+", metavar="export_dir", help="Export directories.")
     p.add_argument("--settings", metavar="FILE", help="A JSON settings file (default: bundled).")
