@@ -1,5 +1,5 @@
 {
-  "$comment": "The strict re-check's default contract values, used when the settings passed hold no usable strict block (the bundled accuracy_defaults.json, associate's accuracy.json version 1, has none). They are the values every case in strict_vectors.json records (associate's accuracy.json strict block and support_score.passes, and policy.json redaction, at associate commit e65ddc4); tests/test_strict_export.py fails when they differ. support_passes is carried for the record only: the re-check does not read it (a support answer in no strict list passes).",
+  "$comment": "The strict re-check's default contract values, used when the settings passed hold no usable strict block (the bundled accuracy_defaults.json, associate's accuracy.json version 1, has none). They agree with associate's accuracy.json strict block and support_score.passes, and policy.json redaction, at associate commit 533c2b8, and are the values every case in strict_vectors.json (64 cases) records, but for the two cases that set their own strict block (derived_decides_drops_true, derived_passes_absent_fails_closed); tests/test_strict_export.py fails when they differ. support_passes is carried for the record only: the re-check does not read it (a support answer in no strict list passes).",
   "version": 1,
   "strict": {
     "keep_marked": [

@@ -703,21 +703,55 @@ def inside_export(export_dir: Path, path: Path) -> bool:
     return Path(export_dir).resolve() in Path(path).resolve().parents
 
 
-def _read_results(export_dir: Path, entries: list[dict[str, Any]]) -> dict[str, str]:
-    """Walk id to saved text, for each ``results/wN.txt`` inside the export directory."""
+def _read_saved(export_dir: Path, root: Path, name: str) -> Optional[str]:
+    """The text of one saved result file, or None when it is absent, unreadable or outside."""
+    target = (export_dir / name).resolve()
+    if root not in target.parents or not target.is_file():
+        return None
+    try:
+        return target.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def _allowed_name(name: Any) -> Optional[str]:
+    """*name* when it is a ``results/wN.txt`` name, the only kind ever opened, else None."""
+    return name if isinstance(name, str) and _SAVED.match(name) else None
+
+
+def _saved_names(entry: Mapping[str, Any]) -> tuple[Optional[str], Optional[str]]:
+    """The file the entry names in ``saved_result`` and the file under its own id.
+
+    This is the one place that decides which saved result files may be read:
+    each is a ``results/wN.txt`` name, or None (the entry names no such file,
+    or its id is not ``wN``).
+    """
+    entry_id = entry.get("id")
+    own = f"results/{entry_id}.txt" if isinstance(entry_id, str) else None
+    return _allowed_name(entry.get("saved_result")), _allowed_name(own)
+
+
+def _read_result_files(export_dir: Path, entries: list[dict[str, Any]]) -> dict[str, str]:
+    """File name to text, for the file each entry names and the file under its own id."""
     root = export_dir.resolve()
+    files: dict[str, str] = {}
+    for entry in entries:
+        for name in _saved_names(entry):
+            if name is None or name in files:
+                continue
+            text = _read_saved(export_dir, root, name)
+            if text is not None:
+                files[name] = text
+    return files
+
+
+def _read_results(entries: list[dict[str, Any]], files: Mapping[str, str]) -> dict[str, str]:
+    """Walk id to saved text, for each ``results/wN.txt`` an entry names inside the export."""
     results: dict[str, str] = {}
     for entry in entries:
-        saved = entry.get("saved_result")
-        if not isinstance(saved, str) or not _SAVED.match(saved):
-            continue
-        target = (export_dir / saved).resolve()
-        if root not in target.parents or not target.is_file():
-            continue
-        try:
-            results[entry["id"]] = target.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
+        named, _ = _saved_names(entry)
+        if named is not None and named in files:
+            results[entry["id"]] = files[named]
     return results
 
 
@@ -751,10 +785,12 @@ def _open_walk(export_dir: Path) -> tuple[Any, list[dict[str, Any]]]:
 
 
 def _load_rest(export_dir: Path, version: Any, entries: list[dict[str, Any]]) -> dict[str, Any]:
+    files = _read_result_files(export_dir, entries)
     return {
         "format": version,
         "entries": entries,
-        "results": _read_results(export_dir, entries),
+        "results": _read_results(entries, files),
+        "result_files": files,
         "payload": _read_payload(export_dir),
     }
 
@@ -764,9 +800,13 @@ def load_export(export_dir: Path) -> dict[str, Any]:
 
     Returns ``format`` (the walk format version, 1 when there is no marker; the
     marker's ``version`` as found, None when absent, when it is not a positive
-    integer), ``entries``, ``results`` (walk id to text) and ``payload`` (None
-    when no facts file exists). Only ``results/wN.txt`` names an entry's
-    ``saved_result`` may be read, and only inside the export directory.
+    integer), ``entries``, ``results`` (walk id to text), ``result_files`` and
+    ``payload`` (None when no facts file exists). Only ``results/wN.txt`` names
+    an entry's ``saved_result`` may be read into ``results``, and only inside
+    the export directory. ``result_files`` is file name to text for those files
+    and for ``results/<the entry's own id>.txt`` of every entry, under the same
+    guard: the strict re-check reads an old-shape fact's saved result under the
+    entry's own id, whether or not the entry names it.
     """
     export_dir = Path(export_dir)
     version, entries = _open_walk(export_dir)
@@ -847,6 +887,7 @@ def _run_data(
     return {
         "entries": loaded["entries"],
         "results": loaded["results"],
+        "result_files": loaded["result_files"],
         "payload": loaded["payload"],
     }
 
@@ -870,7 +911,8 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
     skipped; a child whose walk cannot be read counts as an empty run, the way the
     extension reads it. A prior or child run whose walk format is not supported
     is not loaded (skipped, or an empty child) and is listed in
-    ``unsupported_runs`` as ``{label, walk_format}``.
+    ``unsupported_runs`` as ``{label, walk_format}``. Each run also carries
+    ``result_files`` (see :func:`load_export`).
     """
     export_dir = Path(export_dir)
     current = load_export(export_dir)
@@ -880,7 +922,11 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
         prior_dir = _prior_dir(Path(continue_from))
         data = _run_data(prior_dir, PRIOR_RUN_LABEL, unsupported) if prior_dir else None
         if data is not None:
-            prior_runs[PRIOR_RUN_LABEL] = {"entries": data["entries"], "results": data["results"]}
+            prior_runs[PRIOR_RUN_LABEL] = {
+                "entries": data["entries"],
+                "results": data["results"],
+                "result_files": data["result_files"],
+            }
     children: list[dict[str, Any]] = []
     for label, child_walk in _child_links(export_dir / WALK_FILENAME):
         data = _run_data(_child_dir(export_dir, child_walk), label, unsupported)
@@ -890,6 +936,7 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
                 "payload": (data or {}).get("payload") or {},
                 "entries": (data or {}).get("entries") or [],
                 "results": (data or {}).get("results") or {},
+                "result_files": (data or {}).get("result_files") or {},
             }
         )
     return {
@@ -897,6 +944,7 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
         "payload": current["payload"],
         "entries": current["entries"],
         "results": current["results"],
+        "result_files": current["result_files"],
         "prior_runs": prior_runs,
         "children": children,
         "unsupported_runs": unsupported,
@@ -904,9 +952,20 @@ def load_handback_input(export_dir: Path, continue_from: Optional[Path] = None) 
 
 
 def _not_applicable_reason(loaded: Mapping[str, Any]) -> Optional[str]:
-    if loaded["format"] < 2:
+    """Why facts do not apply to a loaded export, or None when they do.
+
+    The one decision both :func:`inspect_export` and the strict re-check use,
+    in this order: a walk format that is not supported (or a marker whose
+    version is not a positive integer, a missing one included), a walk with no
+    format marker, no facts file.
+    """
+    version = loaded.get("format")
+    reason = _format_reason(version)
+    if reason is not None:
+        return reason
+    if version < 2:
         return "pre-change export: the walk has no format marker, so it carries no facts"
-    if loaded["payload"] is None:
+    if loaded.get("payload") is None:
         return f"no {FACTS_FILENAME} in the export: no hand-back facts were written"
     return None
 
@@ -923,6 +982,11 @@ def _unsupported_reason(version: Any) -> str:
         f"unsupported export: walk format {version} is newer than the formats "
         f"this checker supports ({known}), so it is not checked"
     )
+
+
+def _format_reason(version: Any) -> Optional[str]:
+    """Why a walk format cannot be checked here, or None when it can."""
+    return None if _is_supported_format(version) else _unsupported_reason(version)
 
 
 def _unsupported_result(export_dir: Path, version: Any) -> dict[str, Any]:
@@ -996,7 +1060,7 @@ def inspect_export(
     lines.
     """
     version, _ = _open_walk(Path(export_dir))
-    if not _is_supported_format(version):
+    if _format_reason(version) is not None:
         return _unsupported_result(export_dir, version)
     loaded = load_handback_input(export_dir, continue_from)
     calls = summarise_calls(loaded["entries"], accuracy)
@@ -1076,12 +1140,53 @@ def _handback_outcome(check: Optional[Mapping[str, Any]]) -> str:
     return "none"
 
 
+def _fill_summary(summary: dict[str, Any], inspected: Mapping[str, Any], export_dir: Path) -> None:
+    """Add the re-check's counts and verdict to *summary*, or why facts do not apply."""
+    if not inspected["applicable"]:
+        summary["not_applicable_reason"] = inspected["not_applicable_reason"]
+        return
+    report = dict(inspected["report"])
+    ext_report = _export_json(export_dir, REPORT_FILENAME) or {}
+    unchecked = ext_report.get("unchecked_text")
+    if isinstance(unchecked, dict):
+        report["unchecked_text"] = dict(unchecked)
+        summary["unchecked_text_source"] = "extension"
+    summary.update(
+        python_recheck_ran=True,
+        python_recheck_verdict="accepted" if inspected["accepted"] else "refused",
+        report=report,
+    )
+
+
+def _strict_part(
+    export_dir: Path,
+    check: Optional[Mapping[str, Any]],
+    accuracy: Mapping[str, Any],
+    inspected: Mapping[str, Any],
+) -> Optional[dict[str, Any]]:
+    """``accuracy_result``'s ``strict`` key: None only for an export that is not strict."""
+    from evidence.accuracy import strict_export  # here: strict_export imports this module
+
+    if not strict_export.is_strict_record(check):
+        return None
+    if "strict" in inspected:
+        return inspected["strict"]
+    return strict_export.not_applicable_result(
+        export_dir,
+        check,
+        accuracy,
+        inspected["not_applicable_reason"],
+        unsupported=inspected.get("unsupported") is True,
+    )
+
+
 def accuracy_result(
     export_dir: Path,
     accuracy: Mapping[str, Any],
     *,
     continue_from: Optional[Path] = None,
     check_mode: Optional[str] = None,
+    with_strict: bool = False,
 ) -> dict[str, Any]:
     """The accuracy fields of a harness run result (associate's ``associate run``).
 
@@ -1095,6 +1200,16 @@ def accuracy_result(
     have) and ``unchecked_text_source`` says so. ``check_mode`` is the per-run
     override the operator passed (``None`` when none), and ``check_mode_used`` the
     mode the extension recorded in ``check.json``.
+
+    With *with_strict* true the result gains one key, ``strict``: for a strict
+    export, what :func:`evidence.accuracy.strict_export.recheck_strict_export`
+    returns (with no checkout root), from the one re-check this call already
+    ran: the whole re-check with its comparison against the export's own
+    record, or the not applicable result (``applicable: false``, the reason,
+    ``recheck`` None) when facts do not apply. Where ``recheck_strict_export``
+    would raise an ``ExportError`` it is that same not applicable result with
+    the error as the reason. None only for an export that is not strict.
+    Without the argument the result is what it was before the key existed.
     """
     export_dir = Path(export_dir)
     check = _export_json(export_dir, CHECK_FILENAME)
@@ -1114,28 +1229,18 @@ def accuracy_result(
         inspected = inspect_export(export_dir, accuracy, continue_from)
     except ExportError as err:
         inspected = {"applicable": False, "not_applicable_reason": str(err)}
-    if inspected["applicable"]:
-        report = dict(inspected["report"])
-        ext_report = _export_json(export_dir, REPORT_FILENAME) or {}
-        unchecked = ext_report.get("unchecked_text")
-        if isinstance(unchecked, dict):
-            report["unchecked_text"] = dict(unchecked)
-            summary["unchecked_text_source"] = "extension"
-        summary.update(
-            python_recheck_ran=True,
-            python_recheck_verdict="accepted" if inspected["accepted"] else "refused",
-            report=report,
-        )
-    else:
-        summary["not_applicable_reason"] = inspected["not_applicable_reason"]
+    _fill_summary(summary, inspected, export_dir)
     if inspected.get("unsupported") is True:
         summary.update(unsupported=True, walk_format=inspected["walk_format"])
     if "check" in inspected:  # only a strict export names its check; any other is unchanged
         summary["check"] = inspected["check"]
-    return {
+    result = {
         "check_mode": check_mode,
         "answer": answer,
         "answer_path": str(answer_path) if answer is not None else None,
         "handback_outcome": _handback_outcome(check),
         "accuracy": summary,
     }
+    if with_strict:
+        result["strict"] = _strict_part(export_dir, check, accuracy, inspected)
+    return result

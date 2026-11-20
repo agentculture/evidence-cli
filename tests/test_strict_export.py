@@ -21,6 +21,8 @@ from evidence.accuracy.check import (
     accuracy_result,
     inspect_export,
     load_default_settings,
+    load_export,
+    load_handback_input,
 )
 from evidence.accuracy.strict_export import (
     is_strict_export,
@@ -128,7 +130,24 @@ def test_a_record_with_fewer_facts_is_a_disagreement(tmp_path):
     edit_check(export, lambda r: r["facts"].pop())
     got = recheck_strict_export(export, SETTINGS)["comparison"]
     assert got["facts"][1]["recorded_found"] is False
-    assert {"id": None, "field": "facts", "recorded": 1, "recheck": 2} in got["disagreements"]
+    # The fact with no record gives no field rows: the count row is the disagreement.
+    assert got["facts"][1]["agrees"] is None
+    # Reported once: the count row, naming the fact with no record. The parts that rest on
+    # the stored answers are not compared, so they give no rows.
+    assert got["disagreements"] == [
+        {
+            "id": None,
+            "field": "facts",
+            "recorded": 1,
+            "recheck": 2,
+            "without_record": ["f2"],
+            "not_in_payload": [],
+        }
+    ]
+    assert got["facts_without_record"] == ["f2"]
+    assert got["compared"] == ["facts", "accepted"]
+    assert got["not_compared_reasons"]["counts"] == strict_export.REASON_NO_ANSWERS
+    assert got["agrees"] is False
 
 
 def test_an_export_without_a_strict_record_is_an_export_error(tmp_path):
@@ -197,7 +216,10 @@ def recorded_judge(fact: dict[str, Any]) -> Any:
     return {**judge, "judged": judge["option"] is not None, "confidence": None}
 
 
-def write_export(tmp_path: Path, case: dict[str, Any]) -> tuple[Path, Any]:
+def write_export(
+    tmp_path: Path, case: dict[str, Any], returned_before: bool = True
+) -> tuple[Path, Any]:
+    """An export holding the case; ``strict.returned_before`` is written unless told not to."""
     data, expect = case["input"], case["expect"]
     export = tmp_path / "run" / "export"
     child_lines = []
@@ -227,6 +249,8 @@ def write_export(tmp_path: Path, case: dict[str, Any]) -> tuple[Path, Any]:
             "drop_reasons": expect["drop_reasons"],
         },
     }
+    if returned_before:
+        record["strict"]["returned_before"] = sorted(data["returned_before"])
     (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
     return export, prior
 
@@ -251,6 +275,108 @@ def test_an_export_built_from_a_shared_case_gives_the_case_result(tmp_path, case
     assert got["comparison"]["agrees"] is True, got["comparison"]["disagreements"]
     assert got["recheck"] == case["expect"]
     assert got["returned_before"] == case["input"]["returned_before"]
+    assert got["returned_before_source"] == "check.json"
+
+
+@pytest.mark.parametrize("case", VECTORS["cases"], ids=lambda c: c["name"])
+def test_an_export_without_returned_before_still_gives_the_case_result(tmp_path, case):
+    export, prior = write_export(tmp_path, case, returned_before=False)
+    got = recheck_strict_export(
+        export,
+        case_settings(case),
+        checkout_root=case["input"]["checkout_root"],
+        continue_from=prior,
+    )
+    assert got["comparison"]["agrees"] is True, got["comparison"]["disagreements"]
+    assert got["recheck"] == case["expect"]
+    assert got["returned_before_source"] == "inferred from keep_marked"
+
+
+# --- returned_before ---------------------------------------------------------------------
+
+
+def kept_marked_export(tmp_path: Path, returned_before: Any) -> Path:
+    """A fact recorded keep_marked while a round was left; the record names *returned_before*."""
+    case = named_case("604_part_returned_before_kept_marked")
+    assert case["input"]["rounds_left"] > 0
+    export, _ = write_export(tmp_path, case, returned_before=False)
+    if returned_before is not None:
+        edit_check(export, lambda r: r["strict"].update(returned_before=returned_before))
+    return export
+
+
+def named_case(name: str) -> dict[str, Any]:
+    return next(c for c in VECTORS["cases"] if c["name"] == name)
+
+
+def recheck_case(export: Path, name: str) -> dict[str, Any]:
+    return recheck_strict_export(export, case_settings(named_case(name)))
+
+
+def test_a_recorded_returned_before_is_used_and_named(tmp_path):
+    case = named_case("604_part_returned_before_kept_marked")
+    export = kept_marked_export(tmp_path, case["input"]["returned_before"])
+    got = recheck_case(export, case["name"])
+    assert got["returned_before"] == case["input"]["returned_before"]
+    assert got["returned_before_source"] == "check.json"
+    assert got["comparison"]["agrees"] is True
+
+
+def test_a_recorded_returned_before_can_disagree_on_keep_marked(tmp_path):
+    # The record says keep_marked, a round was left, and the fact was not returned before.
+    export = kept_marked_export(tmp_path, [])
+    got = recheck_case(export, "604_part_returned_before_kept_marked")
+    assert got["returned_before"] == []
+    assert got["comparison"]["agrees"] is False
+    (row,) = [d for d in got["comparison"]["disagreements"] if d["field"] == "strict_outcome"]
+    assert (row["recorded"], row["recheck"]) == ("keep_marked", "returned")
+
+
+def test_without_returned_before_keep_marked_cannot_disagree(tmp_path):
+    export = kept_marked_export(tmp_path, None)
+    got = recheck_case(export, "604_part_returned_before_kept_marked")
+    assert got["returned_before_source"] == "inferred from keep_marked"
+    assert got["returned_before"] == ["f1"]
+    assert got["comparison"]["agrees"] is True
+
+
+@pytest.mark.parametrize("bad", ["f1", [1], {"f1": True}, None], ids=repr)
+def test_a_malformed_returned_before_counts_as_not_recorded(tmp_path, bad):
+    export = kept_marked_export(tmp_path, [])
+    edit_check(export, lambda r: r["strict"].update(returned_before=bad))
+    got = recheck_case(export, "604_part_returned_before_kept_marked")
+    assert got["returned_before_source"] == "inferred from keep_marked"
+    assert got["comparison"]["agrees"] is True
+
+
+def test_the_input_names_where_returned_before_came_from(tmp_path):
+    export = kept_marked_export(tmp_path, ["f1", "f9"])
+    settings = case_settings(named_case("604_part_returned_before_kept_marked"))
+    assert strict_export_input(export, settings)["returned_before"] == ["f1", "f9"]
+
+
+# --- a saved result under the entry's own name ---------------------------------------------
+
+
+def test_an_own_result_file_is_not_read_through_a_link_outside_the_export(tmp_path):
+    case = named_case("saved_result_file_read")
+    export, _ = write_export(tmp_path, case)
+    outside = tmp_path / "outside.txt"
+    outside.write_text(case["input"]["results"]["results/w4.txt"], encoding="utf-8")
+    (export / "results" / "w4.txt").unlink()
+    (export / "results" / "w4.txt").symlink_to(outside)
+    got = recheck_strict_export(export, case_settings(case))["recheck"]["facts"]
+    by_id = {fact["id"]: fact["drop_reason"] for fact in got}
+    assert by_id["f8"] == "no_saved_text"
+
+
+def test_the_loader_names_the_saved_files_it_read(tmp_path):
+    case = named_case("saved_result_file_read")
+    export, _ = write_export(tmp_path, case)
+    loaded = load_export(export)
+    assert set(loaded["result_files"]) == {"results/w1.txt", "results/w4.txt"}
+    # ``results`` is unchanged: walk id to the text of the file its entry names.
+    assert set(loaded["results"]) == {"w3"}
 
 
 # --- the routing -----------------------------------------------------------------------
@@ -364,9 +490,21 @@ def test_a_strict_block_is_used_without_a_support_pass_list():
     assert chosen["contract"]["strict"]["drop"] == ["part"]
 
 
-def test_the_bundled_strict_defaults_are_what_every_shared_case_uses():
+#: The two shared cases that set their own strict block (see associate's rules note).
+OWN_STRICT_BLOCK = ("derived_decides_drops_true", "derived_passes_absent_fails_closed")
+
+
+def test_the_two_cases_with_their_own_strict_block_differ_from_the_defaults():
+    defaults = load_strict_defaults()
+    for name in OWN_STRICT_BLOCK:
+        assert named_case(name)["input"]["contract"]["strict"] != defaults["strict"], name
+
+
+def test_the_bundled_strict_defaults_are_what_every_other_shared_case_uses():
     defaults = load_strict_defaults()
     for case in VECTORS["cases"]:
+        if case["name"] in OWN_STRICT_BLOCK:
+            continue
         contract = case["input"]["contract"]
         assert defaults["strict"] == contract["strict"], case["name"]
         assert defaults["support_passes"] == contract["support_passes"], case["name"]
@@ -432,3 +570,412 @@ def test_answers_fall_back_to_ids_when_positions_do_not_align(tmp_path):
     edit_check(export, lambda r: r["facts"].reverse())
     got = recheck_strict_export(export, SETTINGS)
     assert [f["strict_outcome"] for f in got["recheck"]["facts"]] == ["pass", "dropped"]
+
+
+# --- issue 8: absent parts, no facts file, the comparison from accuracy_result ---------------
+
+NOTHING_COMPARED = "nothing in check.json could be compared"
+ALL_PARTS = list(strict_export.PARTS)
+
+
+def reduced_export(tmp_path: Path) -> Path:
+    export = copy_fixture(tmp_path)
+    (export / "check.json").write_text('{"mode": "strict", "strict": []}', encoding="utf-8")
+    return export
+
+
+def test_a_record_holding_no_part_is_neither_agreement_nor_disagreement(tmp_path):
+    got = recheck_strict_export(reduced_export(tmp_path), SETTINGS)["comparison"]
+    assert got["agrees"] is None
+    assert got["agrees_reason"] == NOTHING_COMPARED
+    assert got["disagreements"] == []
+    assert got["compared"] == []
+    assert got["not_compared"] == ALL_PARTS
+
+
+def test_a_fact_with_no_record_has_no_verdict_of_its_own(tmp_path):
+    rows = recheck_strict_export(reduced_export(tmp_path), SETTINGS)["comparison"]["facts"]
+    assert [row["id"] for row in rows] == ["f1", "f2"]
+    assert [row["agrees"] for row in rows] == [None, None]
+    assert {field["agree"] for row in rows for field in row["fields"].values()} == {None}
+
+
+def test_an_absent_facts_part_gives_no_rows_while_other_parts_are_compared(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: r.pop("facts"))
+    got = recheck_strict_export(export, SETTINGS)["comparison"]
+    # The stored answers went with the facts part: only the checker's verdict is compared.
+    assert got["compared"] == ["accepted"]
+    assert got["not_compared"] == [part for part in ALL_PARTS if part != "accepted"]
+    assert got["disagreements"] == []
+    # Not agreement: the fact outcomes were not compared.
+    assert got["agrees"] is None
+    assert got["agrees_reason"] == (
+        "not compared: facts, verdicts, open_items, counts, drop_reasons, judge_counts"
+    )
+    assert got["not_compared_reasons"]["facts"] == strict_export.REASON_ABSENT
+    assert got["not_compared_reasons"]["counts"] == strict_export.REASON_NO_ANSWERS
+
+
+def test_a_compared_part_still_disagrees_when_facts_are_absent(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: (r.pop("facts"), r.update(accepted=False)))
+    got = recheck_strict_export(export, SETTINGS)["comparison"]
+    assert got["agrees"] is False
+    assert got["disagreements"] == [
+        {"id": None, "field": "accepted", "recorded": False, "recheck": True}
+    ]
+
+
+def test_a_compared_record_has_no_reason(tmp_path):
+    got = recheck_strict_export(FIXTURE, SETTINGS)
+    assert got["comparison"]["agrees_reason"] is None
+    assert got["applicable"] is True
+    assert got["not_applicable_reason"] is None
+
+
+def test_no_disagreement_row_holds_two_equal_values(tmp_path):
+    export = copy_fixture(tmp_path)
+
+    def change(record: dict[str, Any]) -> None:
+        record["facts"][0] = {"id": "f1"}
+        record["strict"]["counts"]["pass"] = 5
+
+    edit_check(export, change)
+    found = recheck_strict_export(export, SETTINGS)["comparison"]["disagreements"]
+    assert found
+    assert all(row["recorded"] != row["recheck"] for row in found)
+    assert "drop_reason" not in [row["field"] for row in found]
+
+
+def test_a_strict_export_without_facts_is_not_applicable_from_both(tmp_path):
+    export = copy_fixture(tmp_path)
+    (export / "facts.json").unlink()
+    inspected = inspect_export(export, SETTINGS)
+    rechecked = recheck_strict_export(export, SETTINGS)
+    assert inspected["applicable"] is False
+    assert rechecked["applicable"] is False
+    assert rechecked["not_applicable_reason"] == inspected["not_applicable_reason"]
+    assert "facts.json" in rechecked["not_applicable_reason"]
+
+
+def test_a_not_applicable_recheck_compares_nothing(tmp_path):
+    export = copy_fixture(tmp_path)
+    (export / "facts.json").unlink()
+    got = recheck_strict_export(export, SETTINGS)
+    assert got["check"] == "strict"
+    assert got["recheck"] is None
+    assert got["accepted"] is None
+    comparison = got["comparison"]
+    assert comparison["agrees"] is None
+    assert comparison["agrees_reason"] == got["not_applicable_reason"]
+    assert (comparison["compared"], comparison["not_compared"]) == ([], ALL_PARTS)
+    assert (comparison["facts"], comparison["disagreements"]) == ([], [])
+
+
+def test_loaded_data_without_file_names_is_still_re_checked():
+    loaded = dict(load_handback_input(FIXTURE))
+    del loaded["result_files"]
+    got = strict_export.recheck_loaded(FIXTURE, loaded, SETTINGS)
+    assert got["comparison"]["agrees"] is True
+    assert got == recheck_strict_export(FIXTURE, SETTINGS)
+
+
+def test_accuracy_result_is_unchanged_by_default():
+    got = accuracy_result(FIXTURE, SETTINGS)
+    assert sorted(got) == ["accuracy", "answer", "answer_path", "check_mode", "handback_outcome"]
+
+
+def test_accuracy_result_can_carry_the_strict_re_check(monkeypatch):
+    runs = []
+    real = strict_export.recheck_with_checker
+
+    def counting(case_input, redaction):
+        runs.append(1)
+        return real(case_input, redaction)
+
+    monkeypatch.setattr(strict_export, "recheck_with_checker", counting)
+    got = accuracy_result(FIXTURE, SETTINGS, with_strict=True)
+    assert len(runs) == 1
+    assert got["strict"]["comparison"]["agrees"] is True
+    assert got["strict"] == recheck_strict_export(FIXTURE, SETTINGS)
+    assert got["accuracy"] == accuracy_result(FIXTURE, SETTINGS)["accuracy"]
+
+
+def test_accuracy_result_with_strict_is_none_for_a_plain_export(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: r.update(mode="report"))
+    got = accuracy_result(export, SETTINGS, with_strict=True)
+    assert got["strict"] is None
+
+
+def test_accuracy_result_with_strict_gives_the_same_not_applicable_result(tmp_path):
+    export = copy_fixture(tmp_path)
+    (export / "facts.json").unlink()
+    got = accuracy_result(export, SETTINGS, with_strict=True)
+    assert got["strict"] == recheck_strict_export(export, SETTINGS)
+    assert got["strict"]["applicable"] is False
+    assert "facts.json" in got["accuracy"]["not_applicable_reason"]
+
+
+def test_accuracy_result_with_strict_names_an_export_error(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: r.update(facts={"f1": {}}))
+    got = accuracy_result(export, SETTINGS, with_strict=True)["strict"]
+    assert got["applicable"] is False
+    assert "facts is not a list" in got["not_applicable_reason"]
+    assert got["recheck"] is None
+
+
+# --- review of PR 9: one applicability decision ------------------------------------------------
+
+
+def set_marker(export: Path, marker: Any) -> None:
+    """Replace the walk's first line (its format marker); None removes the line."""
+    path = export / "walk.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()[1:]
+    head = [] if marker is None else [json.dumps(marker)]
+    path.write_text("\n".join(head + lines) + "\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        {"format": {"name": "associate-walk"}},
+        {"format": {"name": "associate-walk", "version": "2"}},
+        {"format": {"name": "associate-walk", "version": 3}},
+        {"format": {"name": "associate-walk", "version": True}},
+    ],
+    ids=["no version", "a string version", "a newer version", "a boolean version"],
+)
+def test_an_unsupported_format_is_not_applicable_from_both(tmp_path, marker):
+    export = copy_fixture(tmp_path)
+    set_marker(export, marker)
+    inspected = inspect_export(export, SETTINGS)
+    rechecked = recheck_strict_export(export, SETTINGS)
+    assert inspected["unsupported"] is True
+    assert rechecked["unsupported"] is True
+    assert rechecked["applicable"] is False
+    assert rechecked["not_applicable_reason"] == inspected["not_applicable_reason"]
+    assert rechecked["recheck"] is None
+
+
+def test_a_walk_with_no_marker_is_not_applicable_from_both(tmp_path):
+    export = copy_fixture(tmp_path)
+    set_marker(export, None)
+    inspected = inspect_export(export, SETTINGS)
+    rechecked = recheck_strict_export(export, SETTINGS)
+    assert rechecked["applicable"] is False
+    assert rechecked["not_applicable_reason"] == inspected["not_applicable_reason"]
+    assert "unsupported" not in rechecked
+
+
+@pytest.mark.parametrize("drop", ["format", "payload", "prior_runs", "children", "entries"])
+def test_loaded_data_missing_a_key_raises_no_bare_error(drop):
+    loaded = dict(load_handback_input(FIXTURE))
+    del loaded[drop]
+    got = strict_export.recheck_loaded(FIXTURE, loaded, SETTINGS)
+    assert got["check"] == "strict"
+
+
+def test_loaded_data_without_a_format_is_not_applicable():
+    loaded = dict(load_handback_input(FIXTURE))
+    del loaded["format"]
+    got = strict_export.recheck_loaded(FIXTURE, loaded, SETTINGS)
+    assert got["applicable"] is False
+    assert "missing or null" in got["not_applicable_reason"]
+
+
+def test_a_malformed_record_is_an_export_error_even_when_not_applicable(tmp_path):
+    export = copy_fixture(tmp_path)
+    (export / "facts.json").unlink()
+    edit_check(export, lambda r: r["facts"].append({"id": 7}))
+    with pytest.raises(ExportError, match="check.json fact record 3"):
+        recheck_strict_export(export, SETTINGS)
+
+
+def test_a_malformed_record_is_an_export_error_on_an_unsupported_format(tmp_path):
+    export = copy_fixture(tmp_path)
+    set_marker(export, {"format": {"name": "associate-walk", "version": 3}})
+    edit_check(export, lambda r: r.update(facts="none"))
+    with pytest.raises(ExportError, match="facts is not a list"):
+        recheck_strict_export(export, SETTINGS)
+
+
+# --- review of PR 9: pairing fact records with the payload's facts ---------------------------
+
+THREE = "returned_before_only_changes_part_and_little"
+DEPENDENT = ["verdicts", "open_items", "counts", "drop_reasons", "judge_counts"]
+
+
+def three_fact_export(tmp_path: Path, change) -> dict[str, Any]:
+    """The comparison for a shared case of several facts, its record changed by *change*."""
+    case = named_case(THREE)
+    export, _ = write_export(tmp_path, case)
+    edit_check(export, change)
+    return recheck_strict_export(export, case_settings(case))
+
+
+def test_the_three_fact_case_has_unique_ids_and_judged_facts():
+    facts = named_case(THREE)["expect"]["facts"]
+    ids = [fact["id"] for fact in facts]
+    assert len(ids) >= 3
+    assert len(set(ids)) == len(ids)
+    assert facts[2]["judge"] is not None
+
+
+def test_a_missing_middle_record_is_paired_by_id(tmp_path):
+    got = three_fact_export(tmp_path, lambda r: r["facts"].pop(1))
+    rows = got["comparison"]["facts"]
+    expect = named_case(THREE)["expect"]["facts"]
+    assert rows[1]["recorded_found"] is False
+    # The third fact is compared with its own record, not with the one now in its place.
+    assert rows[2]["recorded_found"] is True
+    assert rows[2]["agrees"] is True
+    assert got["recheck"]["facts"][2]["strict_outcome"] == expect[2]["strict_outcome"]
+    assert got["recheck"]["facts"][2]["judge"] == expect[2]["judge"]
+
+
+def test_a_missing_middle_record_is_reported_once(tmp_path):
+    got = three_fact_export(tmp_path, lambda r: r["facts"].pop(1))["comparison"]
+    missing = named_case(THREE)["expect"]["facts"][1]["id"]
+    (row,) = got["disagreements"]
+    assert row["field"] == "facts"
+    assert row["without_record"] == [missing]
+    assert got["facts_without_record"] == [missing]
+    assert [part for part in DEPENDENT if part in got["compared"]] == []
+    assert got["agrees"] is False
+
+
+def test_an_empty_facts_list_gives_the_count_row_only(tmp_path):
+    got = three_fact_export(tmp_path, lambda r: r.update(facts=[]))["comparison"]
+    (row,) = got["disagreements"]
+    assert (row["field"], row["recorded"]) == ("facts", 0)
+    assert len(row["without_record"]) == row["recheck"]
+
+
+def test_a_record_of_another_fact_is_named(tmp_path):
+    def change(record: dict[str, Any]) -> None:
+        record["facts"][1] = {**record["facts"][1], "id": "zz"}
+
+    got = three_fact_export(tmp_path, change)["comparison"]
+    (row,) = got["disagreements"]
+    missing = named_case(THREE)["expect"]["facts"][1]["id"]
+    # The counts are equal, so the row holds the ids, which differ.
+    assert row["field"] == "facts.ids"
+    assert row["recorded"] != row["recheck"]
+    assert (row["without_record"], row["not_in_payload"]) == ([missing], ["zz"])
+
+
+def test_an_extra_record_is_named_and_the_rest_is_compared(tmp_path):
+    def change(record: dict[str, Any]) -> None:
+        record["facts"].append({"id": "zz"})
+
+    got = three_fact_export(tmp_path, change)["comparison"]
+    (row,) = got["disagreements"]
+    assert (row["field"], row["not_in_payload"], row["without_record"]) == ("facts", ["zz"], [])
+    # Every fact has its record, so its stored answer: the counts are still compared.
+    assert "counts" in got["compared"]
+    assert got["facts_without_record"] == []
+
+
+def twin_export(tmp_path: Path) -> Path:
+    """The fixture with a third fact sharing the second one's id, and a record for each."""
+    export = copy_fixture(tmp_path)
+    facts = json.loads((export / "facts.json").read_text(encoding="utf-8"))
+    facts["facts"].append({**facts["facts"][1], "at": {"lines": [3, 3]}})
+    (export / "facts.json").write_text(json.dumps(facts), encoding="utf-8")
+    edit_check(export, lambda r: r["facts"].append(dict(r["facts"][1])))
+    return export
+
+
+def test_records_that_cannot_be_paired_are_not_compared(tmp_path):
+    export = twin_export(tmp_path)
+    edit_check(export, lambda r: r["facts"].pop())
+    got = recheck_strict_export(export, SETTINGS)
+    comparison = got["comparison"]
+    assert "facts" in comparison["not_compared"]
+    assert comparison["not_compared_reasons"]["facts"] == strict_export.REASON_UNPAIRED
+    assert comparison["disagreements"] == []
+    assert comparison["agrees"] is None
+    assert {row["recorded_found"] for row in comparison["facts"]} == {False}
+    # No stored answer is given to a fact it may not belong to.
+    data = strict_export_input(export, SETTINGS)
+    assert data["decider"] == {}
+    assert "decider_by_position" not in data
+    assert got["recheck"]["facts"][1]["strict_outcome"] == "not_judged"
+
+
+def test_the_input_holds_one_pairing_for_the_answers(tmp_path):
+    case = named_case(THREE)
+    export, _ = write_export(tmp_path, case)
+    edit_check(export, lambda r: r["facts"].pop(1))
+    data = strict_export_input(export, case_settings(case))
+    answers = data["decider_by_position"]
+    assert answers[1] is None
+    assert answers[2] == data["decider"][case["expect"]["facts"][2]["id"]]
+
+
+# --- review of PR 9: what agreement means -----------------------------------------------------
+
+
+def test_a_record_with_only_accepted_is_not_agreement(tmp_path):
+    export = copy_fixture(tmp_path)
+    (export / "check.json").write_text('{"mode": "strict", "accepted": true}', encoding="utf-8")
+    got = recheck_strict_export(export, SETTINGS)["comparison"]
+    assert got["compared"] == ["accepted"]
+    assert got["disagreements"] == []
+    assert got["agrees"] is None
+    assert got["agrees_reason"].startswith("not compared: facts, ")
+    assert got["incomplete"] is True
+
+
+def test_a_record_missing_a_part_but_holding_every_fact_agrees_and_is_incomplete(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: r["strict"].pop("judge_counts"))
+    got = recheck_strict_export(export, SETTINGS)["comparison"]
+    assert got["agrees"] is True
+    assert got["incomplete"] is True
+    assert got["not_compared_reasons"] == {"judge_counts": strict_export.REASON_ABSENT}
+
+
+def test_a_full_record_without_returned_before_is_complete():
+    got = recheck_strict_export(FIXTURE, SETTINGS)
+    assert got["returned_before_source"] == "inferred from keep_marked"
+    assert got["comparison"]["incomplete"] is False
+    assert got["comparison"]["not_compared_reasons"] == {}
+    assert got["comparison"]["facts_without_record"] == []
+
+
+# --- review of PR 9: which saved files may be opened ------------------------------------------
+
+
+def test_only_results_wn_txt_names_are_ever_opened(tmp_path, monkeypatch):
+    from evidence.accuracy import check as check_mod
+
+    opened = []
+    monkeypatch.setattr(
+        check_mod, "_read_saved", lambda export_dir, root, name: opened.append(name)
+    )
+    entries = [
+        {"id": "w1", "tool": "ls", "saved_result": "../secret.txt"},
+        {"id": "w2", "tool": "ls", "saved_result": "results/w2.txt.bak"},
+        {"id": "../w3", "tool": "ls", "saved_result": "results/w9.txt"},
+        {"id": "w0", "tool": "ls", "saved_result": 7},
+        {"tool": "ls"},
+    ]
+    assert check_mod._read_result_files(tmp_path, entries) == {}
+    assert opened == ["results/w1.txt", "results/w2.txt", "results/w9.txt"]
+
+
+def test_the_saved_names_of_an_entry_are_decided_in_one_place():
+    from evidence.accuracy import check as check_mod
+
+    assert check_mod._saved_names({"id": "w4", "saved_result": "w4.txt"}) == (
+        None,
+        "results/w4.txt",
+    )
+    assert check_mod._saved_names({"id": "x", "saved_result": "results/w1.txt"}) == (
+        "results/w1.txt",
+        None,
+    )

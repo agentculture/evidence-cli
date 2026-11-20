@@ -230,3 +230,125 @@ def test_a_malformed_record_is_a_user_error(capsys, tmp_path):
     assert out == ""
     assert "check.json fact record 1" in err
     assert "Traceback" not in err
+
+
+# --- issue 8: a record that holds nothing to compare ----------------------------------------
+
+
+def reduced_copy(tmp_path: Path) -> Path:
+    export = strict_copy(tmp_path)
+    (export / "check.json").write_text('{"mode": "strict", "strict": []}', encoding="utf-8")
+    return export
+
+
+def test_text_says_plainly_when_nothing_could_be_compared(capsys, tmp_path):
+    code, out, _ = run(capsys, ["check", "--no-flags", str(reduced_copy(tmp_path))])
+    assert code == 0
+    assert "  neither agrees nor disagrees: nothing in check.json could be compared" in out
+    assert "agrees with the export's own check.json on" not in out
+    assert "disagreement f" not in out
+    assert "  not compared (absent from check.json): facts," in out
+    assert "1 strict run(s) with an incomplete check.json record" in out
+    assert "  flag strict_record_incomplete: check.json not compared: facts, verdicts" in out
+
+
+def test_json_reports_the_third_state_as_null(capsys, tmp_path):
+    _, js, _ = run(capsys, ["check", "--no-flags", "--json", str(reduced_copy(tmp_path))])
+    report = json.loads(js)
+    (entry,) = report["runs"]
+    assert entry["agrees"] is None
+    assert entry["agrees_reason"] == "nothing in check.json could be compared"
+    assert entry["disagreements"] == []
+    assert [flag["check"] for flag in entry["flags"]] == ["strict_record_incomplete"]
+    assert entry["incomplete"] is True
+    assert [fact["agrees_with_record"] for fact in entry["facts"]] == [None, None]
+    assert report["sums"]["strict_disagreements"] == 0
+    assert report["sums"]["strict_not_compared"] == 1
+
+
+def test_an_agreeing_run_counts_no_uncompared_run(capsys):
+    _, js, _ = run(capsys, ["check", "--no-flags", "--json", str(FIXTURE)])
+    report = json.loads(js)
+    assert report["runs"][0]["agrees_reason"] is None
+    assert report["runs"][0]["incomplete"] is False
+    assert report["runs"][0]["flags"] == []
+    assert report["runs"][0]["returned_before_source"] == "inferred from keep_marked"
+    assert report["sums"]["strict_not_compared"] == 0
+
+
+def test_text_says_when_returned_before_was_read_from_the_record(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    record["strict"]["returned_before"] = []
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert "returned_before read from check.json" in out
+    _, plain, _ = run(capsys, ["check", "--no-flags", str(FIXTURE)])
+    assert "returned_before not recorded in check.json" in plain
+
+
+# --- review of PR 9: a truncated record is never a clean run ---------------------------------
+
+INCOMPLETE = "strict_record_incomplete"
+
+
+def written_flags(capsys, tmp_path: Path, export: Path) -> list[dict]:
+    flags_dir = tmp_path / "flags"
+    code, _, err = run(capsys, ["check", "--flags-dir", str(flags_dir), str(export)])
+    assert (code, err) == (0, "")
+    return json.loads((flags_dir / "flags.json").read_text(encoding="utf-8"))["runs"][0]["flags"]
+
+
+@pytest.mark.parametrize(
+    "text", ['{"mode": "strict"}', '{"mode": "strict", "accepted": true}'], ids=["bare", "accepted"]
+)
+def test_a_stripped_record_is_flagged_and_does_not_agree(capsys, tmp_path, text):
+    export = strict_copy(tmp_path)
+    (export / "check.json").write_text(text, encoding="utf-8")
+    (flag,) = written_flags(capsys, tmp_path, export)
+    assert flag["check"] == INCOMPLETE
+    assert "facts" in flag["detail"]
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert "agrees with the export's own check.json on" not in out
+    assert "neither agrees nor disagrees" in out
+    _, js, _ = run(capsys, ["check", "--no-flags", "--json", str(export)])
+    assert json.loads(js)["sums"]["strict_not_compared"] == 1
+
+
+def test_a_record_without_its_last_fact_is_flagged_twice(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    record["facts"].pop()
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    flags = written_flags(capsys, tmp_path, export)
+    assert [flag["check"] for flag in flags] == ["strict_record_disagrees", INCOMPLETE]
+    assert "facts without a record: f2" in flags[0]["detail"]
+    assert "facts without a record: f2" in flags[1]["detail"]
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert "disagrees with the export's own check.json (1)" in out
+    assert "facts without a record: f2" in out
+
+
+def test_a_record_missing_one_part_agrees_and_is_still_flagged(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    del record["strict"]["judge_counts"]
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    (flag,) = written_flags(capsys, tmp_path, export)
+    assert flag == {"check": INCOMPLETE, "detail": "check.json not compared: judge_counts"}
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert "  agrees with the export's own check.json on:" in out
+
+
+def test_a_full_record_writes_no_flag(capsys, tmp_path):
+    assert written_flags(capsys, tmp_path, strict_copy(tmp_path)) == []
+
+
+def test_a_record_of_no_fact_is_named_in_the_text(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    record["facts"].append({"id": "zz"})
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert "  disagreement facts: check.json 3, re-check 2; records of no fact: zz" in out
+    assert "strict_record_incomplete" not in out

@@ -8,9 +8,11 @@ wrote about the command is never read. The rules are those of associate's
    ``purpose`` key dropped.
 2. Every string is rewritten: paths under the checkout (or its run worktrees)
    become relative, other home paths become ``~``, and the contract's
-   redaction filter is applied. An object key is only redacted, and the tool
-   name gets the home rewrite and the redaction filter (as the extension's
-   ``lib/evidence.ts`` does; the note says keys get the whole rewrite).
+   redaction filter is applied. An object key is only redacted (a path in a
+   key is not made relative), and the tool name gets the home rewrite and the
+   redaction filter, not the checkout rewrite. A path match may start anywhere
+   in a string; a path segment ends at a slash, whitespace, a quote or a
+   backtick.
 3. ``bash`` prints its ``argv``, a read tool prints its path and line range, and
    any other tool prints ``key=value`` pairs in the recorded key order (in
    ECMAScript property order: keys that are array indexes come first).
