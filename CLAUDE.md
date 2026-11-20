@@ -59,7 +59,7 @@ Each is one run, not a rate. Beyond that, say "built and unit-tested", never
   takes one case input (walk entries, saved results, prior runs, children, the
   finish payload, the contract subset, the decider's stored answers,
   `returned_before`, `rounds_left`) and returns the result; it never asks a
-  decider. All 45 shared cases in `evidence/data/strict_vectors.json` (a byte
+  decider. All 64 shared cases in `evidence/data/strict_vectors.json` (a byte
   copy of associate's `associate/contract/strict_vectors.json`) agree.
   `evidence/accuracy/strict_export.py` rebuilds that input from a stored strict
   export and compares the result with the export's own `check.json`; `evidence

@@ -44,6 +44,7 @@ from evidence.accuracy.check import (
     parse_source_ref,
 )
 from evidence.accuracy.counts import SOURCE_KINDS, empty_counts
+from evidence.accuracy.strict_export import RETURNED_FROM_RECORD
 from evidence.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from evidence.cli._output import emit_error, emit_result
 
@@ -254,7 +255,9 @@ def _strict_entry(export_dir: Path, result: dict[str, Any]) -> dict[str, Any]:
         "drop_reasons": recheck["drop_reasons"],
         "judge_counts": recheck["judge_counts"],
         "report": recheck["report"],
+        "returned_before_source": strict["returned_before_source"],
         "agrees": comparison["agrees"],
+        "agrees_reason": comparison["agrees_reason"],
         "compared": comparison["compared"],
         "not_compared": comparison["not_compared"],
         "disagreements": comparison["disagreements"],
@@ -337,6 +340,9 @@ def _sums(entries: list[dict[str, Any]]) -> dict[str, Any]:
         runs["strict"] = strict
         sums["strict_disagreements"] = sum(
             len(e["disagreements"]) for e in entries if e.get("check") == STRICT
+        )
+        sums["strict_not_compared"] = sum(
+            1 for e in entries if e.get("check") == STRICT and e["agrees"] is None
         )
     return sums
 
@@ -428,6 +434,23 @@ def _disagreement_line(diff: dict[str, Any]) -> str:
     return f"  disagreement {_difference_text(diff)}"
 
 
+_ABSENT = "absent from check.json"
+#: Without the record's facts there are no stored answers, so the parts resting on them go too.
+_ABSENT_WITH_FACTS = "absent from check.json, or resting on its absent facts"
+_RETURNED_READ = (
+    "  returned_before read from check.json: keep_marked against returned is re-decided"
+)
+_RETURNED_INFERRED = (
+    "  returned_before not recorded in check.json: taken from its keep_marked facts, so "
+    "keep_marked against returned is not re-decided"
+)
+
+
+def _returned_line(entry: dict[str, Any]) -> str:
+    read = entry["returned_before_source"] == RETURNED_FROM_RECORD
+    return _RETURNED_READ if read else _RETURNED_INFERRED
+
+
 def _render_strict(entry: dict[str, Any]) -> list[str]:
     out = [
         "  strict re-check (check.json mode strict); "
@@ -440,19 +463,25 @@ def _render_strict(entry: dict[str, Any]) -> list[str]:
             out.append(f"  {kind[:-1].replace('_', ' ')} {item['id']}: {item['outcome']}{reason}")
     out.append(f"  counts: {_pairs(entry['counts'])}")
     out.append(f"  drop reasons: {_pairs(entry['drop_reasons'])}")
-    compared = ", ".join(entry["compared"])
-    if entry["agrees"]:
-        out.append(f"  agrees with the export's own check.json on: {compared}")
-    else:
-        count = len(entry["disagreements"])
-        out.append(
-            f"  disagrees with the export's own check.json ({count}): compared on {compared}"
-        )
-        out += [_disagreement_line(diff) for diff in entry["disagreements"]]
+    out.append(_returned_line(entry))
+    out += _agreement_lines(entry)
     if entry["not_compared"]:
         absent = ", ".join(entry["not_compared"])
-        out.append(f"  not compared (absent from check.json): {absent}")
+        why = _ABSENT_WITH_FACTS if "facts" in entry["not_compared"] else _ABSENT
+        out.append(f"  not compared ({why}): {absent}")
     return out
+
+
+def _agreement_lines(entry: dict[str, Any]) -> list[str]:
+    """Agrees, disagrees (with each disagreement), or neither when nothing was compared."""
+    if entry["agrees"] is None:
+        return [f"  neither agrees nor disagrees: {entry['agrees_reason']}"]
+    compared = ", ".join(entry["compared"])
+    if entry["agrees"]:
+        return [f"  agrees with the export's own check.json on: {compared}"]
+    count = len(entry["disagreements"])
+    head = f"  disagrees with the export's own check.json ({count}): compared on {compared}"
+    return [head] + [_disagreement_line(diff) for diff in entry["disagreements"]]
 
 
 def _render_run(entry: dict[str, Any]) -> list[str]:
@@ -485,6 +514,12 @@ def _render_flags_file(info: dict[str, Any]) -> str:
     if info.get("reason") == "--no-flags":
         return "flags file not written (--no-flags)"
     return f"the flags file was not written: {info['path']}: {info['reason']}"
+
+
+def _not_compared_clause(sums: dict[str, Any]) -> str:
+    """Said only when a strict run had nothing to compare, so other reports read as before."""
+    count = sums["strict_not_compared"]
+    return f"; {count} strict run(s) where nothing could be compared" if count else ""
 
 
 def render(report: dict[str, Any]) -> str:
@@ -522,7 +557,7 @@ def render(report: dict[str, Any]) -> str:
         # Kept last: a disagreement does not change the exit code (see the module text).
         out.append(
             f"strict re-check: {report['sums']['strict_disagreements']} disagreement(s) "
-            "with the exports' own check.json"
+            "with the exports' own check.json" + _not_compared_clause(report["sums"])
         )
     return "\n".join(out)
 

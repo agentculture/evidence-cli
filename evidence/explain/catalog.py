@@ -136,7 +136,12 @@ check, run on the saved files with the decider's stored answers (no decider is
 asked). It prints, per fact, its id, source, kind checked, outcome and drop
 reason; the counts; and whether it agrees with the export's own `check.json`
 (naming the parts compared and any it could not compare), listing each
-disagreement. Each disagreement is also a reviewer flag
+disagreement. When `check.json` holds nothing that could be compared it says
+"neither agrees nor disagrees" (`agrees` is null in `--json`, with
+`agrees_reason`), which is not agreement. It also says whether the fact ids
+returned in earlier rounds were read from `check.json`
+(`strict.returned_before`) or taken from the facts it records as kept with the
+mark. Each disagreement is also a reviewer flag
 (`strict_record_disagrees`); it does not change the exit code, and the count of
 disagreements is in the `--json` sums and the last line printed. A fact with
 outcome pass had its evidence copied from a saved result or its quote found in

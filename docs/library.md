@@ -41,7 +41,7 @@ not mean the value is true.
 ## Strict re-check: `evidence.accuracy`
 
 A second, independent implementation of associate's strict facts check
-(`lib/strict.ts` in associate), kept in agreement with it through the shared
+(`lib/strict.ts` in associate), kept in agreement with it through the 64 shared
 cases in `evidence/data/strict_vectors.json`, a byte copy of associate's
 `associate/contract/strict_vectors.json`. It never asks a decider: the
 decider's stored answers are an input. associate is expected to import the four
@@ -86,9 +86,79 @@ and `judge_counts`. The result names the parts compared and those the record
 does not hold (`compared`, `not_compared`). A malformed fact record in
 `check.json` (not an object, or no string `id`) is an `ExportError`.
 
+What is a disagreement, in one rule:
+
+- A part the record does not hold is named in `not_compared` and gives no
+  disagreement row. The decider's stored answers are in the record's `facts`;
+  without that part every part but `accepted` is named in `not_compared` too,
+  whether or not the record holds it.
+- A row is a disagreement only when the recorded and the re-checked value
+  differ. A fact with no record of its own (the record lists fewer facts) gives
+  no field rows; the `facts` count row reports the difference, and that fact's
+  row has `agrees: null`.
+- `comparison.agrees` has three states: `true` (at least one part was compared
+  and nothing differs), `false` (something differs) and `null` (no part could
+  be compared). `comparison.agrees_reason` is `null`, or for the third state
+  `nothing in check.json could be compared`. `null` is not agreement: test
+  `agrees is True`, not truthiness alone, when the difference matters.
+
+A strict export with no `facts.json` (or a walk with no format marker) is not
+applicable. `recheck_strict_export` then returns `applicable: false` and the
+same `not_applicable_reason` as `inspect_export`, with `recheck`, `accepted`
+and `rounds_left` null and a `comparison` holding no rows and `agrees: null`
+(its `agrees_reason` is the same reason). Otherwise `applicable` is true and
+`not_applicable_reason` null.
+
+`returned_before`: when `check.json` holds `strict.returned_before` (the fact
+ids returned in earlier rounds, a list of strings), the re-check uses it,
+decides `keep_marked` against `returned` itself and can disagree with the
+record on it; the result's `returned_before_source` is `check.json`. An export
+written before the key existed, or one where the value is not a list of
+strings, is read as before: the facts recorded as `keep_marked` while a round
+was left are taken as returned before, the re-check cannot disagree with the
+record on that one point, and `returned_before_source` is
+`inferred from keep_marked`.
+
 `evidence.accuracy.check.inspect_export` and `accuracy_result` route an export
 whose `check.json` says strict to the strict re-check, and their result then
 carries `check: "strict"`; any other export gives the result it gave before.
+
+`accuracy_result(export_dir, settings, with_strict=True)` adds one key to its
+result, `strict`: what `recheck_strict_export` returns for the same export
+(with no checkout root), taken from the one re-check the call already ran. It
+is `None` for an export that is not strict, or where facts do not apply or the
+export cannot be read (`accuracy.not_applicable_reason` then says why).
+Without the argument the result has no `strict` key, as before. A caller that
+needs paths in the printed command made relative to a checkout calls
+`recheck_strict_export` with `checkout_root` instead.
+
+`load_export` and `load_handback_input` return, beside `results` (walk id to the
+text of the file the entry names), `result_files` (file name to text): the file
+each entry names in `saved_result` and `results/<the entry's own id>.txt`, both
+read only inside the export directory. The strict re-check of an export reads
+these, because a pointer reads the file the entry names and an old-shape fact
+the file under the entry's own id.
+
+### The rules
+
+The rules are associate's `docs/notes/strict-vectors.md`, which is written to
+be enough without reading the TypeScript. Points this implementation once had
+to take from the TypeScript, now stated there and followed here:
+
+- In the printed command, an object key of the arguments gets the redaction
+  filter only: a path in a key is not made relative and a home path in it is
+  not shortened. The tool name gets the home rewrite and the redaction filter.
+- A checkout path or home path may start anywhere in a string, and a backtick
+  ends a path segment just as a slash, whitespace or a quote does.
+- `min_quote_length` is usable only when it is a whole number of 1 or more.
+  Anything else (absent, `0`, a fraction, a string, `true`) is a broken
+  contract and every fact fails as `quote_short`. `True` is an `int` in Python
+  and is not counted as 1.
+- A pointer reads the file its walk entry names in `saved_result`; an old-shape
+  fact, the action check and the `delegate_status` rule read
+  `results/<the entry's own id>.txt`.
+- `returned_before` is read only for a support answer named in `keep_marked`;
+  an id in it that no fact has is ignored.
 
 A fact with outcome `pass` had its evidence copied from a saved result, or its
 quote found in one; a judged fact carries the decider's stored answer. Neither

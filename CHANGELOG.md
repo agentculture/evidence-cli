@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-11-20
+
+### Added
+
+- **`strict.returned_before` is read.** associate's `check.json` may now carry
+  `strict.returned_before`, the sorted fact ids returned to the model in
+  earlier rounds. When the record holds it (a list of strings),
+  `recheck_strict_export` uses it, decides kept with the mark against returned
+  itself, and can disagree with the record on that; the result's new
+  `returned_before_source` is `check.json`. An export without the key is read
+  as before (the facts recorded as kept with the mark while a round was left
+  stand in, and that one point cannot disagree); `returned_before_source` is
+  then `inferred from keep_marked`. `evidence check` prints which it was.
+- `accuracy_result(..., with_strict=True)` adds one key, `strict`: the whole
+  strict re-check with its comparison, from the one re-check the call already
+  ran (None for an export that is not strict or where facts do not apply).
+  Without the argument the result is unchanged.
+- `load_export` and `load_handback_input` also return `result_files` (file name
+  to text): the file each entry names and the file under the entry's own id.
+
+### Changed
+
+- **The shared strict cases grew from 45 to 64.**
+  `evidence/data/strict_vectors.json` is the byte copy of associate's file at
+  associate commit `533c2b8`, sha256
+  `94e07a7a43d9cbc45e6a6e9975d9aead8e37a432b1c85fb2794ed2774813d5fd`. The first
+  45 cases are unchanged. All 64 agree through `strict_recheck` with no change
+  to the rules it implements.
+- The re-check of a stored export reads an old-shape fact's saved result from
+  `results/<the entry's own id>.txt` whether or not the entry names that file,
+  as the rules say (the shared case `saved_result_file_read`). An export
+  written by associate's extension names each entry's own file, so its result
+  does not change.
+- `recheck_strict_export`'s result gains `applicable`, `not_applicable_reason`
+  and `returned_before_source`; its `comparison` gains `agrees_reason`.
+  `evidence check --json` gains `agrees_reason` and `returned_before_source`
+  per strict run and `strict_not_compared` in the sums. No key was renamed or
+  removed.
+- The description of the rules here follows associate's extended note: an
+  object key of a command's arguments is redacted and its paths are not made
+  relative, a backtick ends a path match, and `min_quote_length` must be a
+  whole number of 1 or more (`true` does not count as 1).
+
+### Fixed
+
+Fixes #8.
+
+- **A part absent from `check.json` gives no disagreement rows.** A part listed
+  under `not_compared` yields no rows; a fact with no record of its own yields
+  no field rows (the `facts` count row reports the difference); a row whose
+  recorded and re-checked values are equal is never a disagreement. When the
+  record's `facts` are absent the decider's stored answers are absent with
+  them, so only `accepted` is still compared. When nothing could be compared,
+  `agrees` is `null` (it was `false`) and `agrees_reason` reads "nothing in
+  check.json could be compared"; `evidence check` prints "neither agrees nor
+  disagrees" with that reason and counts such runs on its last line. A fact
+  row's `agrees`, and `agrees_with_record` in `--json`, is `null` for a fact
+  with no record.
+- **A strict export with no `facts.json` is not applicable from both
+  `recheck_strict_export` and `inspect_export`,** with the same reason.
+  `recheck_strict_export` used to re-check zero facts and report count
+  disagreements.
+- **The comparison is available from `accuracy_result`** (`with_strict=True`),
+  so a caller wanting both no longer re-checks the export twice.
+
 ## [0.8.0] - 2026-11-20
 
 ### Added

@@ -230,3 +230,53 @@ def test_a_malformed_record_is_a_user_error(capsys, tmp_path):
     assert out == ""
     assert "check.json fact record 1" in err
     assert "Traceback" not in err
+
+
+# --- issue 8: a record that holds nothing to compare ----------------------------------------
+
+
+def reduced_copy(tmp_path: Path) -> Path:
+    export = strict_copy(tmp_path)
+    (export / "check.json").write_text('{"mode": "strict", "strict": []}', encoding="utf-8")
+    return export
+
+
+def test_text_says_plainly_when_nothing_could_be_compared(capsys, tmp_path):
+    code, out, _ = run(capsys, ["check", "--no-flags", str(reduced_copy(tmp_path))])
+    assert code == 0
+    assert "  neither agrees nor disagrees: nothing in check.json could be compared" in out
+    assert "agrees with the export's own check.json on" not in out
+    assert "disagreement f" not in out
+    assert "  not compared (absent from check.json, or resting on its absent facts): facts," in out
+    assert "1 strict run(s) where nothing could be compared" in out
+
+
+def test_json_reports_the_third_state_as_null(capsys, tmp_path):
+    _, js, _ = run(capsys, ["check", "--no-flags", "--json", str(reduced_copy(tmp_path))])
+    report = json.loads(js)
+    (entry,) = report["runs"]
+    assert entry["agrees"] is None
+    assert entry["agrees_reason"] == "nothing in check.json could be compared"
+    assert (entry["disagreements"], entry["flags"]) == ([], [])
+    assert [fact["agrees_with_record"] for fact in entry["facts"]] == [None, None]
+    assert report["sums"]["strict_disagreements"] == 0
+    assert report["sums"]["strict_not_compared"] == 1
+
+
+def test_an_agreeing_run_counts_no_uncompared_run(capsys):
+    _, js, _ = run(capsys, ["check", "--no-flags", "--json", str(FIXTURE)])
+    report = json.loads(js)
+    assert report["runs"][0]["agrees_reason"] is None
+    assert report["runs"][0]["returned_before_source"] == "inferred from keep_marked"
+    assert report["sums"]["strict_not_compared"] == 0
+
+
+def test_text_says_when_returned_before_was_read_from_the_record(capsys, tmp_path):
+    export = strict_copy(tmp_path)
+    record = json.loads((export / "check.json").read_text(encoding="utf-8"))
+    record["strict"]["returned_before"] = []
+    (export / "check.json").write_text(json.dumps(record), encoding="utf-8")
+    _, out, _ = run(capsys, ["check", "--no-flags", str(export)])
+    assert "returned_before read from check.json" in out
+    _, plain, _ = run(capsys, ["check", "--no-flags", str(FIXTURE)])
+    assert "returned_before not recorded in check.json" in plain
