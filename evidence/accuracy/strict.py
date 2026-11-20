@@ -366,7 +366,7 @@ def _strong_groups(edges: list[list[int]]) -> list[list[int]]:
     return [sorted(g) for g in groups]
 
 
-def _visit(start, edges, order, low, stack, on_stack, groups) -> None:  # noqa: C901
+def _visit(start, edges, order, low, stack, on_stack, groups) -> None:
     work = [(start, 0)]
     while work:
         node, next_edge = work.pop()

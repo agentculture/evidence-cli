@@ -27,6 +27,7 @@ from evidence.accuracy.command import READ_TOOLS, js_trim
 # re.ASCII: \d is 0-9 only, as in associate's TypeScript.
 _STAMP = re.compile(r"^(\d+)\t", re.ASCII)
 _NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?", re.ASCII)
+_CUT = "result_cut"
 #: The only saved result names a pointer reads, as in the extension (``results/wN.txt``).
 SAVED_NAME = re.compile(r"results/w[1-9][0-9]*\.txt", re.ASCII)  # used with fullmatch
 
@@ -117,9 +118,9 @@ class _Text:
         if not self.partial:
             return "pointer_out_of_range"
         if self.stamps is None:
-            return "result_cut"
+            return _CUT
         shown = self.stamps[-1]
-        return "result_cut" if shown is None or last > int(shown) else "pointer_out_of_range"
+        return _CUT if shown is None or last > int(shown) else "pointer_out_of_range"
 
 
 def _by_lines(
@@ -136,7 +137,7 @@ def _by_search(text: _Text, term: str) -> tuple[Optional[tuple[int, int, int, in
         if term in line:
             number = text.found_number(index)
             return (index, index, number, number), ""
-    return None, "result_cut" if text.partial else "search_not_found"
+    return None, _CUT if text.partial else "search_not_found"
 
 
 def resolve(
@@ -158,7 +159,7 @@ def resolve(
         return None, reason
     start, end, first, last = span
     if partial and end >= len(lines) - 1:
-        return None, "result_cut"
+        return None, _CUT
     # Stamps out of order give end < start: the slice is then empty, as in the extension.
     quote = "\n".join(lines[start : end + 1])
     return Located(quote, first, last), None
