@@ -24,6 +24,7 @@ from evidence.accuracy.check import (
 )
 from evidence.accuracy.strict_export import (
     is_strict_export,
+    load_strict_defaults,
     recheck_strict_export,
     strict_export_input,
     strict_settings,
@@ -142,9 +143,9 @@ def test_an_export_without_a_strict_record_is_an_export_error(tmp_path):
 # --- the settings ------------------------------------------------------------------------------
 
 
-def test_settings_without_a_strict_block_take_the_shared_contract():
+def test_settings_without_a_strict_block_take_the_bundled_defaults():
     chosen = strict_settings(SETTINGS)
-    assert chosen["strict_source"] == "shared cases"
+    assert chosen["strict_source"] == "bundled defaults"
     shared = VECTORS["cases"][0]["input"]["contract"]
     assert chosen["contract"]["strict"] == shared["strict"]
     assert chosen["contract"]["support_passes"] == shared["support_passes"]
@@ -285,3 +286,149 @@ def test_accuracy_result_names_the_strict_check():
 def test_the_compared_fields_are_named():
     assert strict_export.STRICT_MODE == "strict"
     assert strict_export.COMPARED_FIELDS == ("kind_checked", "strict_outcome", "drop_reason")
+
+
+# --- review findings -------------------------------------------------------------------------
+
+
+def test_verdicts_open_items_accepted_and_judge_counts_are_compared(tmp_path):
+    case = next(c for c in VECTORS["cases"] if c["name"] == "verdicts_on_dropped_facts")
+    export, prior = write_export(tmp_path, case)
+    path = export / "check.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["verdicts"] = [dict(v) for v in case["expect"]["verdicts"]]
+    record["open_items"] = [dict(v) for v in case["expect"]["open_items"]]
+    record["accepted"] = False  # v1 is refused by the checker
+    record["strict"]["judge_counts"] = dict(case["expect"]["judge_counts"])
+    path.write_text(json.dumps(record), encoding="utf-8")
+    settings = case_settings(case)
+    got = recheck_strict_export(export, settings)["comparison"]
+    assert got["agrees"] is True, got["disagreements"]
+    assert got["not_compared"] == []
+    assert set(got["compared"]) >= {"facts", "verdicts", "open_items", "accepted", "judge_counts"}
+
+    record["verdicts"][3]["strict_outcome"] = "dropped"
+    record["open_items"][0]["strict_reason"] = None
+    record["accepted"] = True
+    record["strict"]["judge_counts"]["llm_judged"] = 0
+    path.write_text(json.dumps(record), encoding="utf-8")
+    found = recheck_strict_export(export, settings)["comparison"]["disagreements"]
+    assert {
+        "id": "v4",
+        "field": "verdicts.strict_outcome",
+        "recorded": "dropped",
+        "recheck": "pass",
+    } in found
+    assert {
+        "id": "o1",
+        "field": "open_items.strict_reason",
+        "recorded": None,
+        "recheck": "basis_dropped",
+    } in found
+    assert {"id": None, "field": "accepted", "recorded": True, "recheck": False} in found
+    assert {"id": None, "field": "judge_counts.llm_judged", "recorded": 0, "recheck": 2} in found
+
+
+def test_parts_absent_from_the_record_are_named_as_not_compared(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: (r["strict"].pop("judge_counts"), r.pop("open_items")))
+    got = recheck_strict_export(export, SETTINGS)["comparison"]
+    assert got["agrees"] is True
+    assert got["not_compared"] == ["open_items", "judge_counts"]
+    assert "open_items" not in got["compared"]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [{"strict_outcome": "pass"}, {"id": 7}, "not an object"],
+    ids=["no id", "id not a string", "not an object"],
+)
+def test_a_malformed_fact_record_is_an_export_error(tmp_path, bad):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: r["facts"].append(bad))
+    with pytest.raises(ExportError, match="check.json fact record 3"):
+        recheck_strict_export(export, SETTINGS)
+
+
+def test_a_facts_value_that_is_not_a_list_is_an_export_error(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: r.update(facts={"f1": {}}))
+    with pytest.raises(ExportError, match="facts is not a list"):
+        recheck_strict_export(export, SETTINGS)
+
+
+def test_a_strict_block_is_used_without_a_support_pass_list():
+    settings = {**SETTINGS, "strict": {"keep_marked": [], "drop": ["part"]}}
+    chosen = strict_settings(settings)
+    assert chosen["strict_source"] == "settings"
+    assert chosen["contract"]["strict"]["drop"] == ["part"]
+
+
+def test_the_bundled_strict_defaults_are_what_every_shared_case_uses():
+    defaults = load_strict_defaults()
+    for case in VECTORS["cases"]:
+        contract = case["input"]["contract"]
+        assert defaults["strict"] == contract["strict"], case["name"]
+        assert defaults["support_passes"] == contract["support_passes"], case["name"]
+    assert defaults["redaction"] == VECTORS["redaction"]
+    assert strict_settings(SETTINGS)["strict_source"] == "bundled defaults"
+
+
+def test_the_export_path_does_not_load_the_shared_cases(monkeypatch):
+    def refuse():
+        raise AssertionError("the shared cases were loaded")
+
+    monkeypatch.setattr(strict_export, "load_strict_vectors", refuse, raising=False)
+    monkeypatch.setattr("evidence.accuracy.vectors.load_strict_vectors", refuse)
+    assert recheck_strict_export(FIXTURE, SETTINGS)["comparison"]["agrees"] is True
+
+
+def test_check_json_is_read_once_per_export(monkeypatch):
+    calls = []
+    original = strict_export.read_check_record
+
+    def counting(export_dir):
+        calls.append(export_dir)
+        return original(export_dir)
+
+    monkeypatch.setattr(strict_export, "read_check_record", counting)
+    recheck_strict_export(FIXTURE, SETTINGS)
+    assert len(calls) == 1
+    calls.clear()
+    inspect_export(FIXTURE, SETTINGS)
+    assert len(calls) == 1
+
+
+def test_a_redaction_pattern_python_cannot_compile_is_an_export_error():
+    settings = {**SETTINGS, "redaction": {"replacement": "X", "patterns": ["(?<name>secret)"]}}
+    with pytest.raises(ExportError, match=r"\(\?<name>secret\)"):
+        recheck_strict_export(FIXTURE, settings)
+
+
+def test_two_facts_with_one_id_keep_their_own_stored_answers(tmp_path):
+    export = copy_fixture(tmp_path)
+    facts = json.loads((export / "facts.json").read_text(encoding="utf-8"))
+    second = {**facts["facts"][1], "id": "f2", "at": {"lines": [3, 3]}, "value": "the intake role"}
+    facts["facts"].append(second)
+    (export / "facts.json").write_text(json.dumps(facts), encoding="utf-8")
+
+    def change(record):
+        twin = json.loads(json.dumps(record["facts"][1]))
+        twin["judge"]["option"] = "all"
+        twin["strict_outcome"], twin["drop_reason"], twin["status"] = "pass", None, "judged"
+        record["facts"].append(twin)
+        record["strict"]["counts"]["pass"] = 2
+        record["strict"]["judge_counts"]["llm_judged"] = 2
+
+    edit_check(export, change)
+    got = recheck_strict_export(export, SETTINGS)
+    outcomes = [f["strict_outcome"] for f in got["recheck"]["facts"]]
+    assert outcomes == ["pass", "dropped", "pass"]
+    assert got["comparison"]["agrees"] is True, got["comparison"]["disagreements"]
+
+
+def test_answers_fall_back_to_ids_when_positions_do_not_align(tmp_path):
+    export = copy_fixture(tmp_path)
+    edit_check(export, lambda r: r["facts"].reverse())
+    got = recheck_strict_export(export, SETTINGS)
+    assert [f["strict_outcome"] for f in got["recheck"]["facts"]] == ["pass", "dropped"]

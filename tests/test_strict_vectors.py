@@ -25,8 +25,8 @@ from evidence.accuracy.vectors import load_strict_vectors
 VECTORS = load_strict_vectors()
 CASES = VECTORS["cases"]
 
-#: sha256 of associate's associate/contract/strict_vectors.json at associate commit 7c8db4c.
-STRICT_VECTORS_SHA256 = "58c999fb3f42a2d0d0beb0658295b9ddbf4711c9dcc6d91d0ede6c8d71a4faa6"
+#: sha256 of associate's associate/contract/strict_vectors.json at associate commit e65ddc4.
+STRICT_VECTORS_SHA256 = "fb02095abc7470d9671393485ba667436cb16178d1c3d0b356f1f4f79f625103"
 
 
 def differences(got: Any, want: Any, path: str = "") -> list[str]:
@@ -110,5 +110,6 @@ def test_the_built_wheel_carries_the_strict_vectors():
         (wheel,) = Path(out).glob("*.whl")
         with zipfile.ZipFile(wheel) as zf:
             assert "evidence/data/strict_vectors.json" in zf.namelist()
+            assert "evidence/data/strict_defaults.json" in zf.namelist()
             shipped = zf.read("evidence/data/strict_vectors.json")
     assert hashlib.sha256(shipped).hexdigest() == STRICT_VECTORS_SHA256

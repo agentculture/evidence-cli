@@ -102,6 +102,7 @@ class _Fact:
     """One fact as the re-check sees it, from its own check to its outcome."""
 
     raw: dict[str, Any]
+    position: int
     id: str
     kind_stated: str
     based_on: list[str]
@@ -148,6 +149,7 @@ class _Context:
     contract: Mapping[str, Any]
     strict: Mapping[str, Any]
     decider: Mapping[str, Any]
+    decider_by_position: Optional[list[Any]]
     returned_before: frozenset[str]
     rounds_left: int
     checkout_root: str
@@ -168,6 +170,11 @@ def _new_context(case_input: Mapping[str, Any], redaction: Mapping[str, Any]) ->
         contract=contract,
         strict=_as_dict(contract.get("strict")),
         decider=_as_dict(case_input.get("decider")),
+        decider_by_position=(
+            case_input["decider_by_position"]
+            if isinstance(case_input.get("decider_by_position"), list)
+            else None
+        ),
         returned_before=frozenset(_str(i) for i in _as_list(case_input.get("returned_before"))),
         rounds_left=rounds if isinstance(rounds, int) and not isinstance(rounds, bool) else 0,
         checkout_root=_str(case_input.get("checkout_root")),
@@ -275,13 +282,14 @@ def _locate(ctx: _Context, fact: _Fact) -> Optional[tuple[dict[str, Any], dict[s
     return run, entry, parsed["label"]
 
 
-def _new_fact(raw: Any) -> _Fact:
+def _new_fact(raw: Any, position: int) -> _Fact:
     data = _as_dict(raw)
     stated = data.get("kind")
     kind = stated if isinstance(stated, str) and stated in KINDS else _DIRECT
     quote = data.get("quote")
     return _Fact(
         raw=data,
+        position=position,
         id=_str(data.get("id")),
         kind_stated=kind,
         based_on=[_str(b) for b in _as_list(data.get("based_on"))],
@@ -290,8 +298,8 @@ def _new_fact(raw: Any) -> _Fact:
     )
 
 
-def _check_fact(ctx: _Context, raw: Any) -> _Fact:
-    fact = _new_fact(raw)
+def _check_fact(ctx: _Context, position: int, raw: Any) -> _Fact:
+    fact = _new_fact(raw, position)
     if not _is_positive_integer(ctx.min_len):
         fact.fail(_QUOTE_SHORT)  # a broken contract fails every fact closed, as check_handback does
         return fact
@@ -522,6 +530,16 @@ def _derived_outcome(ctx: _Context, option: Any) -> str:
     return _PASS if option in _as_list(ctx.strict.get("derived_passes")) else _DROPPED
 
 
+def _stored_answer(ctx: _Context, fact: _Fact) -> dict[str, Any]:
+    """The stored answer for a fact: by its position when one is given there, else by its id."""
+    by_position = ctx.decider_by_position
+    if by_position is not None and fact.position < len(by_position):
+        answer = by_position[fact.position]
+        if isinstance(answer, dict):
+            return answer
+    return _as_dict(ctx.decider.get(fact.id))
+
+
 def _not_judged(fact: _Fact, question: str, reason: Any) -> None:
     fact.judge = {"question": question, "option": None, "reason": reason}
     fact.status = _NOT_JUDGED
@@ -540,7 +558,7 @@ def _record_answer(
         _not_judged(fact, question, "no_evidence" if question == _SUPPORT else "no_inputs")
         return
     fact.sent = sent
-    stored = _as_dict(ctx.decider.get(fact.id))
+    stored = _stored_answer(ctx, fact)
     if "option" not in stored:
         _not_judged(fact, question, stored.get("not_judged", "no_stored_answer"))
         return
@@ -732,6 +750,10 @@ def strict_recheck(case_input: Mapping[str, Any], redaction: Mapping[str, Any]) 
     ``checkout_root``, ``walk``, ``results`` (by file name), ``prior_runs``,
     ``children``, ``finish``, ``contract``, ``decider`` (the decider's stored
     answer per judged fact id), ``returned_before`` and ``rounds_left``.
+    An input may also hold ``decider_by_position``: a list, one entry per fact
+    in hand-back order, each a stored answer or null. An entry there is used in
+    place of the answer keyed by the fact's id, so two facts that share an id
+    keep their own answers (the shared cases do not use it).
     *redaction* is the contract's ``{replacement, patterns}`` filter, applied to
     the printed command.
 
@@ -743,7 +765,7 @@ def strict_recheck(case_input: Mapping[str, Any], redaction: Mapping[str, Any]) 
 
 
 def _run_steps(ctx: _Context, finish: Mapping[str, Any]) -> tuple[list[_Fact], list[dict]]:
-    ctx.facts = [_check_fact(ctx, raw) for raw in _as_list(finish.get("facts"))]
+    ctx.facts = [_check_fact(ctx, i, raw) for i, raw in enumerate(_as_list(finish.get("facts")))]
     for fact in ctx.facts:
         ctx.first_by_id.setdefault(fact.id, fact)
     order, refusals = _check_graph(ctx)

@@ -950,9 +950,10 @@ def _strict_result(
     """The strict re-check's result for an export whose check.json says strict, else None."""
     from evidence.accuracy import strict_export  # here: strict_export imports this module
 
-    if not strict_export.is_strict_export(Path(export_dir)):
+    record = strict_export.read_check_record(Path(export_dir))  # read once, passed down
+    if not strict_export.is_strict_record(record):
         return None
-    strict = strict_export.recheck_loaded(Path(export_dir), loaded, accuracy)
+    strict = strict_export.recheck_loaded(Path(export_dir), loaded, accuracy, record=record)
     return {
         **base,
         "check": strict_export.STRICT_MODE,

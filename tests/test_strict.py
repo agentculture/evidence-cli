@@ -18,7 +18,7 @@ from evidence.accuracy.vectors import load_strict_vectors
 
 VECTORS = load_strict_vectors()
 REDACTION = VECTORS["redaction"]
-ROOT = "/home/someone/git/proj"
+ROOT = "/srv/someone/git/proj"
 
 
 def case_input(name: str) -> dict[str, Any]:
@@ -240,8 +240,8 @@ def command(entry: dict[str, Any], root: str = ROOT) -> str:
 
 
 def test_a_run_worktree_root_prints_paths_of_the_main_checkout_relative():
-    root = "/home/someone/git/.worktrees.proj/run-7/"
-    entry = {"tool": "ls", "args_used": {"path": "/home/someone/git/proj/lib", "b": f"{root}x"}}
+    root = "/srv/someone/git/.worktrees.proj/run-7/"
+    entry = {"tool": "ls", "args_used": {"path": "/srv/someone/git/proj/lib", "b": f"{root}x"}}
     assert command(entry, root) == "ls path=lib b=x"
 
 
@@ -251,13 +251,13 @@ def test_a_root_alone_or_before_a_quote_or_backtick_prints_a_dot():
 
 
 def test_a_relative_root_rewrites_no_checkout_path():
-    entry = {"tool": "ls", "args_used": {"path": "/home/someone/git/proj/lib"}}
+    entry = {"tool": "ls", "args_used": {"path": "/root/git/proj/lib"}}
     assert command(entry, "proj") == "ls path=~/git/proj/lib"
 
 
 def test_an_object_key_is_redacted_but_not_rewritten():
-    entry = {"tool": "x", "args_used": {"opts": {"/home/someone/git/proj/k": 1, "token=abc": 2}}}
-    assert command(entry) == 'x opts={"/home/someone/git/proj/k":1,"[REDACTED]":2}'
+    entry = {"tool": "x", "args_used": {"opts": {"/srv/someone/git/proj/k": 1, "token=abc": 2}}}
+    assert command(entry) == 'x opts={"/srv/someone/git/proj/k":1,"[REDACTED]":2}'
 
 
 def test_array_index_keys_come_first_as_in_ecmascript():
@@ -293,3 +293,21 @@ def test_an_array_index_key_is_ascii_digits_only():
     for digit in ("\uff11", "\u0661"):
         key = f"1{digit}"
         assert [k for k, _ in js_items({"b": 1, key: 2})] == ["b", key]
+
+
+def test_a_redaction_pattern_python_cannot_compile_names_the_pattern():
+    import pytest
+
+    redaction = {"replacement": "X", "patterns": ["(?<name>secret)"]}
+    with pytest.raises(ValueError, match=r"\(\?<name>secret\)"):
+        render_command({"tool": "ls", "args": {}}, ROOT, redaction)
+
+
+def test_a_stored_answer_by_position_wins_over_one_by_id():
+    data = case_input("worded_all_pass")
+    fact = data["finish"]["facts"][0]
+    data["finish"]["facts"] = [fact, dict(fact)]
+    data["decider"] = {"f1": {"question": "support", "option": "none"}}
+    data["decider_by_position"] = [None, {"question": "support", "option": "all"}]
+    outcomes = [f["strict_outcome"] for f in run(data)["facts"]]
+    assert outcomes == ["dropped", "pass"]

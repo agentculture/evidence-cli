@@ -101,15 +101,26 @@ def _relative(pattern: Optional[re.Pattern[str]], text: str) -> str:
     return pattern.sub(replace, text)
 
 
-def _redaction_patterns(redaction: Mapping[str, Any]) -> list[re.Pattern[str]]:
+def compile_redaction(redaction: Mapping[str, Any]) -> list[re.Pattern[str]]:
+    """The redaction filter's patterns compiled with Python ``re``.
+
+    The patterns are written for ECMAScript; one Python cannot compile (an
+    ECMAScript-only form such as a ``(?<name>...)`` group) raises ``ValueError``
+    naming the pattern, rather than being dropped and leaving text unredacted.
+    """
     patterns = []
     for source in redaction.get("patterns") or []:
         if not isinstance(source, str):
             continue
-        flags = re.ASCII
-        if source.startswith(_CASE_INSENSITIVE):
-            source, flags = source[len(_CASE_INSENSITIVE) :], flags | re.IGNORECASE
-        patterns.append(re.compile(source, flags))
+        body, flags = source, re.ASCII
+        if body.startswith(_CASE_INSENSITIVE):
+            body, flags = body[len(_CASE_INSENSITIVE) :], flags | re.IGNORECASE
+        try:
+            patterns.append(re.compile(body, flags))
+        except re.error as err:
+            raise ValueError(
+                f"redaction pattern {source!r} cannot be compiled by Python re: {err}"
+            ) from err
     return patterns
 
 
@@ -159,7 +170,7 @@ class _Rewriter:
 
     def __init__(self, checkout_root: str, redaction: Mapping[str, Any]) -> None:
         self.checkout = _checkout_pattern(checkout_root)
-        self.patterns = _redaction_patterns(redaction)
+        self.patterns = compile_redaction(redaction)
         replacement = redaction.get("replacement")
         self.replacement = replacement if isinstance(replacement, str) else ""
 
