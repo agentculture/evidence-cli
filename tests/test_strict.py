@@ -77,12 +77,21 @@ def test_a_sent_fact_with_no_stored_answer_is_not_judged():
     assert f1["strict_outcome"] == "not_judged"
 
 
-def test_derived_decides_drops_true_drops_on_an_answer_other_than_yes():
+def test_derived_decides_drops_true_passes_only_the_derived_passes():
     data = case_input("derived_each_answer")
     data["contract"]["strict"]["derived_decides_drops"] = True
     by_id = facts_of(run(data))
-    assert by_id["f2"]["strict_outcome"] == "pass"
-    assert by_id["f3"]["drop_reason"] == by_id["f4"]["drop_reason"] == "decider_drop"
+    assert by_id["f2"]["strict_outcome"] == by_id["f5"]["strict_outcome"] == "pass"  # yes, mostly
+    for fid in ("f3", "f4", "f6"):  # partly, no, little
+        assert by_id[fid]["drop_reason"] == "decider_drop"
+
+
+def test_derived_decides_drops_true_without_derived_passes_fails_closed():
+    data = case_input("derived_each_answer")
+    data["contract"]["strict"]["derived_decides_drops"] = True
+    del data["contract"]["strict"]["derived_passes"]
+    by_id = facts_of(run(data))
+    assert {by_id[f]["drop_reason"] for f in ("f2", "f3", "f4", "f5", "f6")} == {"decider_drop"}
 
 
 def test_a_support_answer_in_no_list_passes():

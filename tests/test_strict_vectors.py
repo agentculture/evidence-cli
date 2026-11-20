@@ -25,8 +25,8 @@ from evidence.accuracy.vectors import load_strict_vectors
 VECTORS = load_strict_vectors()
 CASES = VECTORS["cases"]
 
-#: sha256 of associate's associate/contract/strict_vectors.json at associate commit ea15d4e.
-STRICT_VECTORS_SHA256 = "a5eadb0be1124edb8dc2db5121b6d39f7063564addba1b7442bdfa709eb73980"
+#: sha256 of associate's associate/contract/strict_vectors.json at associate commit 7c8db4c.
+STRICT_VECTORS_SHA256 = "58c999fb3f42a2d0d0beb0658295b9ddbf4711c9dcc6d91d0ede6c8d71a4faa6"
 
 
 def differences(got: Any, want: Any, path: str = "") -> list[str]:

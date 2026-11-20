@@ -38,6 +38,37 @@ listed name needs a third-party package.
 A passed fact means its quote was found in the saved result it cites. It does
 not mean the value is true.
 
+## Strict re-check: `evidence.accuracy`
+
+A second, independent implementation of associate's strict facts check
+(`lib/strict.ts` in associate), kept in agreement with it through the shared
+cases in `evidence/data/strict_vectors.json`, a byte copy of associate's
+`associate/contract/strict_vectors.json`. It never asks a decider: the
+decider's stored answers are an input. associate is expected to import the four
+names marked in the last column for strict: `strict_recheck` and
+`load_strict_vectors` to run the shared cases from its Python tests,
+`is_strict_export` and `recheck_strict_export` to re-check a strict run's
+export.
+
+| Module | Name | What it is | Used by associate |
+|--------|------|------------|-------------------|
+| `evidence.accuracy.strict` | `strict_recheck` | Re-check one strict hand-back from a case input; returns the shape of a case's `expect`. | yes |
+| `evidence.accuracy.strict` | `KINDS` | The kinds a fact may state: `direct`, `llm`, `derived`. | no |
+| `evidence.accuracy.strict` | `OUTCOMES` | The strict outcomes, in the order the counts are written. | no |
+| `evidence.accuracy.strict_export` | `is_strict_export` | Whether an export's `check.json` says `"mode": "strict"`. | yes |
+| `evidence.accuracy.strict_export` | `recheck_strict_export` | Re-check a stored strict export and compare it with the export's own `check.json`. | yes |
+| `evidence.accuracy.strict_export` | `strict_export_input` | The strict re-check's input, rebuilt from a stored strict export. | no |
+| `evidence.accuracy.strict_export` | `strict_settings` | The contract values and redaction filter the strict re-check reads from given settings. | no |
+| `evidence.accuracy.vectors` | `load_strict_vectors` | The shared strict cases shipped in the package. | yes |
+
+`evidence.accuracy.check.inspect_export` and `accuracy_result` route an export
+whose `check.json` says strict to the strict re-check, and their result then
+carries `check: "strict"`; any other export gives the result it gave before.
+
+A fact with outcome `pass` had its evidence copied from a saved result, or its
+quote found in one; a judged fact carries the decider's stored answer. Neither
+means the value is true, and no count here is a measure of correctness.
+
 ## Answer check: `evidence.answer`
 
 | Module | Name | What it is | Used by associate |

@@ -125,6 +125,7 @@ def strict_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
                 "drop": strict["drop"],
                 "mark_text": strict.get("mark_text"),
                 "derived_decides_drops": strict.get("derived_decides_drops") is True,
+                "derived_passes": _as_list(strict.get("derived_passes")),
             },
             "support_passes": passes if own else shared_contract["support_passes"],
             "min_quote_length": settings.get("min_quote_length"),

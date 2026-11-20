@@ -516,9 +516,10 @@ def _support_outcome(ctx: _Context, fact: _Fact, option: Any) -> str:
 
 
 def _derived_outcome(ctx: _Context, option: Any) -> str:
-    if ctx.strict.get("derived_decides_drops") is True and option != "yes":
-        return _DROPPED
-    return _PASS
+    if ctx.strict.get("derived_decides_drops") is not True:
+        return _PASS  # a derived answer is only shown
+    # A contract with no derived_passes passes no derived answer: it fails closed.
+    return _PASS if option in _as_list(ctx.strict.get("derived_passes")) else _DROPPED
 
 
 def _not_judged(fact: _Fact, question: str, reason: Any) -> None:

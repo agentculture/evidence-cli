@@ -160,6 +160,7 @@ def test_settings_shaped_like_associate_accuracy_version_2_are_used():
     assert chosen["strict_source"] == "settings"
     assert chosen["contract"]["strict"]["drop"] == ["none", "little"]
     assert chosen["contract"]["strict"]["derived_decides_drops"] is False
+    assert chosen["contract"]["strict"]["derived_passes"] == []
     assert chosen["contract"]["support_passes"] == ["all"]
     assert chosen["redaction"]["replacement"] == "X"
 
