@@ -31,7 +31,9 @@ Commands
   evidence doctor             Check the agent-identity invariants.
   evidence cli overview       Describe the CLI surface itself.
   evidence check <export>...  Run check: counts of checked quotes and backed
-                                  conclusions for run exports.
+                                  conclusions for run exports; a strict export
+                                  (check.json mode strict) gets the strict
+                                  re-check, compared with its own record.
   evidence grade              Answer check: a match against recorded expected
                                   values (--answer-file, --expected).
 
@@ -72,7 +74,10 @@ def _as_json_payload() -> dict[str, object]:
             {"path": ["cli", "overview"], "summary": "Describe the CLI surface."},
             {
                 "path": ["check"],
-                "summary": "Run check: counts of checked quotes and backed conclusions.",
+                "summary": (
+                    "Run check: counts of checked quotes and backed conclusions; "
+                    "a strict export gets the strict re-check."
+                ),
             },
             {
                 "path": ["grade"],

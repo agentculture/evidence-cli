@@ -54,6 +54,21 @@ Each is one run, not a rate. Beyond that, say "built and unit-tested", never
   or by the operator, and is read from where it is: it is not confined to the
   export. A prior or child run whose walk format is not supported is not
   loaded and is listed under `unsupported_runs`.
+- **The strict re-check.** A second, independent implementation of associate's
+  strict facts check (`lib/strict.ts` in associate). `evidence/accuracy/strict.py`
+  takes one case input (walk entries, saved results, prior runs, children, the
+  finish payload, the contract subset, the decider's stored answers,
+  `returned_before`, `rounds_left`) and returns the result; it never asks a
+  decider. All 45 shared cases in `evidence/data/strict_vectors.json` (a byte
+  copy of associate's `associate/contract/strict_vectors.json`) agree.
+  `evidence/accuracy/strict_export.py` rebuilds that input from a stored strict
+  export and compares the result with the export's own `check.json`; `evidence
+  check` routes an export whose `check.json` says `"mode": "strict"` to it. A
+  fact with outcome pass had its evidence copied from a saved result or its
+  quote found in one; a judged fact carries the decider's stored answer. The
+  rules are associate's `docs/notes/strict-vectors.md`. No strict export from a
+  live run has been re-checked here; the one stored example is associate's test
+  fixture.
 - **`evidence grade --answer-file F --expected F`, the answer check.** Matches an
   answer text against expected values (`must_appear`, `must_not_appear`,
   `one_of`; schema in `evidence/data/expected_values.schema.json`) and returns
@@ -93,7 +108,8 @@ Wording rules that tests enforce (`tests/test_wording.py`):
 `docs/library.md` lists every public name with its module. associate is planned
 to import eight of them: `check_quote`, `parse_source_ref`, `check_handback`,
 `load_export`, `load_handback_input`, `inspect_export`, `accuracy_result` and
-`fact_counts`.
+`fact_counts`; and, for strict, four more: `strict_recheck`,
+`load_strict_vectors`, `is_strict_export` and `recheck_strict_export`.
 
 **Changing a listed name's signature or behaviour, or removing or renaming it, is
 a breaking release.** Add new public names to `docs/library.md` in the same
@@ -110,11 +126,15 @@ evidence/
 │   ├── _errors.py       # CliError + EXIT_SUCCESS / EXIT_USER_ERROR / EXIT_ENV_ERROR
 │   ├── _output.py       # emit_result / emit_error / emit_diagnostic
 │   └── _commands/       # one module per verb, each exposing register(sub)
-├── accuracy/            # run check: matcher.py, counts.py, check.py, vectors.py
+├── accuracy/            # run check: matcher.py, counts.py, check.py, vectors.py;
+│                        #   strict re-check: strict.py, pointer.py, command.py,
+│                        #   strict_export.py
 ├── answer/              # answer check: grade.py, schema.py
 ├── explain/             # resolve(path) / known_paths(); catalog.py ENTRIES
-└── data/                # matcher_vectors.json, accuracy_defaults.json,
-                         #   expected_values.schema.json (ship in the wheel)
+└── data/                # matcher_vectors.json, strict_vectors.json,
+                         #   strict_defaults.json, accuracy_defaults.json,
+                         #   expected_values.schema.json
+                         #   (ship in the wheel)
 tests/                   # pytest; fixtures/ holds copied exports and answers
 docs/                    # library.md, skill-sources.md, specs/, plans/
 .claude/skills/          # vendored skills (cite-don't-import)

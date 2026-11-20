@@ -53,3 +53,32 @@ def test_callables_listed_as_functions_are_callable() -> None:
     for name in ASSOCIATE_IMPORTS:
         module_name = next(m for m, n in _listed() if n == name)
         assert callable(getattr(importlib.import_module(module_name), name))
+
+
+#: The names associate is expected to import for the strict re-check (docs/library.md).
+STRICT_ASSOCIATE_IMPORTS = {
+    "strict_recheck",
+    "load_strict_vectors",
+    "is_strict_export",
+    "recheck_strict_export",
+}
+STRICT_ROW = re.compile(
+    r"^\|\s*`([A-Za-z0-9_.]+)`\s*\|\s*`([A-Za-z0-9_]+)`\s*\|[^|]*\|\s*(yes|no)\s*\|\s*$",
+    re.MULTILINE,
+)
+
+
+def test_the_strict_names_associate_imports_are_listed_as_used_and_callable() -> None:
+    used = {name: flag for _, name, flag in STRICT_ROW.findall(LIBRARY_DOC.read_text("utf-8"))}
+    for name in STRICT_ASSOCIATE_IMPORTS:
+        assert used.get(name) == "yes", name
+        module_name = next(m for m, n in _listed() if n == name)
+        assert callable(getattr(importlib.import_module(module_name), name))
+
+
+def test_the_library_doc_says_which_strict_names_associate_imports() -> None:
+    text = " ".join(LIBRARY_DOC.read_text("utf-8").split())
+    assert (
+        "associate is expected to import the four names marked in the last column for strict"
+        in text
+    )

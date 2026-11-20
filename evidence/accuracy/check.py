@@ -85,7 +85,8 @@ _WS = re.compile(r"[ \t\n\r\f\v]")
 _SECOND_HAND = frozenset({"agent", "memory"})
 _DELEGATE_STATUS = "delegate_status"
 #: Result fields holding the child's own words: its final message and the rendered answer.
-_CHILD_ACCOUNT_KEYS = ("final_reply", "answer")
+#: associate now writes ``unchecked_final_reply`` in place of ``final_reply``; both are read.
+_CHILD_ACCOUNT_KEYS = ("final_reply", "answer", "unchecked_final_reply")
 
 
 def parse_source_ref(ref: Any) -> dict[str, Any]:
@@ -940,10 +941,47 @@ def _unsupported_result(export_dir: Path, version: Any) -> dict[str, Any]:
     }
 
 
+def _strict_result(
+    export_dir: Path,
+    loaded: Mapping[str, Any],
+    accuracy: Mapping[str, Any],
+    base: Mapping[str, Any],
+) -> Optional[dict[str, Any]]:
+    """The strict re-check's result for an export whose check.json says strict, else None."""
+    from evidence.accuracy import strict_export  # here: strict_export imports this module
+
+    record = strict_export.read_check_record(Path(export_dir))  # read once, passed down
+    if not strict_export.is_strict_record(record):
+        return None
+    strict = strict_export.recheck_loaded(Path(export_dir), loaded, accuracy, record=record)
+    return {
+        **base,
+        "check": strict_export.STRICT_MODE,
+        "applicable": True,
+        "not_applicable_reason": None,
+        "facts": strict["recheck"]["facts"],
+        "verdicts": strict["recheck"]["verdicts"],
+        "open_items": strict["recheck"]["open_items"],
+        "report": strict["recheck"]["report"],
+        "accepted": strict["accepted"],
+        "strict": strict,
+    }
+
+
 def inspect_export(
     export_dir: Path, accuracy: Mapping[str, Any], continue_from: Optional[Path] = None
 ) -> dict[str, Any]:
     """What the run check reports for one export directory.
+
+    An export whose ``check.json`` has ``"mode": "strict"`` (and a facts
+    payload) is re-checked by the strict re-check instead
+    (:mod:`evidence.accuracy.strict_export`): the result then carries
+    ``check: "strict"``, its ``facts``, ``verdicts`` and ``open_items`` are the
+    strict records, ``report`` is the strict counts (the shape of
+    ``report.json`` ``strict``), ``accepted`` says the checker refused nothing,
+    and ``strict`` holds the whole re-check with its comparison against the
+    export's own record. Any other export gives the quote check's result, with
+    no ``check`` key, exactly as before.
 
     With no facts (a walk with no format marker, or no facts file) ``applicable``
     is false, ``facts`` is an empty list and ``report`` is None: facts are not
@@ -978,6 +1016,9 @@ def inspect_export(
             "report": None,
             "accepted": None,
         }
+    strict = _strict_result(export_dir, loaded, accuracy, base)
+    if strict is not None:
+        return strict
     result = check_handback(loaded, accuracy)
     result["report"]["python_recheck_ran"] = True
     return {
@@ -1089,6 +1130,8 @@ def accuracy_result(
         summary["not_applicable_reason"] = inspected["not_applicable_reason"]
     if inspected.get("unsupported") is True:
         summary.update(unsupported=True, walk_format=inspected["walk_format"])
+    if "check" in inspected:  # only a strict export names its check; any other is unchanged
+        summary["check"] = inspected["check"]
     return {
         "check_mode": check_mode,
         "answer": answer,

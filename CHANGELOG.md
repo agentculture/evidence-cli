@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-11-20
+
+### Added
+
+- **The strict re-check.** A second, independent implementation of
+  associate's strict facts check (`evidence/accuracy/strict.py`, with
+  `pointer.py` and `command.py`). It takes one hand-back's input, including the
+  decider's stored answers, and returns per fact the kind checked, the outcome
+  and the drop reason, the verdicts and open items, and the counts. It never
+  asks a decider and reads no environment. All 45 shared cases in
+  `evidence/data/strict_vectors.json`, a byte copy of associate's
+  `associate/contract/strict_vectors.json`, agree; `load_strict_vectors()`
+  loads them for other packages' tests.
+- **Re-checking a stored strict export** (`evidence/accuracy/strict_export.py`):
+  the input is rebuilt from `walk.jsonl`, `results/`, `facts.json` and
+  `check.json`, and the result is compared with what the export's own
+  `check.json` recorded: per fact the kind checked, outcome and drop reason;
+  per verdict and open item the id, outcome, reason, strict outcome and strict
+  reason; `accepted`; and the strict counts, drop reasons and judge counts. The
+  result names the parts compared and any the record does not hold. Stored
+  decider answers are matched to facts by position (by id when the records do
+  not line up), so two facts sharing an id keep their own answers. A malformed
+  fact record or a redaction pattern Python cannot compile is reported as an
+  error about the export or settings. `check.json` does not record the ids
+  returned in earlier rounds, so facts it records as kept with the mark stand
+  for them.
+- The strict re-check's default contract values, used when the settings hold no
+  well-formed `strict` block, are in this package's own
+  `evidence/data/strict_defaults.json` (equal to what every shared case uses
+  today). A caller's `strict` block is used whenever it is well formed; a
+  support pass list is not required (the re-check does not read it).
+- `evidence check` prints the strict re-check for an export whose `check.json`
+  says `"mode": "strict"`: each fact's id, source, kind checked, outcome and
+  drop reason, the counts, and whether it agrees with the export's own record,
+  with each disagreement. Each disagreement is also written as a reviewer flag
+  (`strict_record_disagrees`). It does not change the exit code (as a
+  disagreement with `report.json` does not); the count is in the `--json` sums
+  and in the last line printed. `--json` carries the same. A strict run is not
+  added to the quote sums.
+- The new public names are in `docs/library.md`.
+
+A fact with outcome pass had its evidence copied from a saved result or its
+quote found in one; a judged fact carries the decider's stored answer. Neither
+says a value is true.
+
+### Changed
+
+- An export that is not strict gives exactly the result it gave before, from
+  the library and from `evidence check`.
+- In a saved `delegate_status` result, the key `unchecked_final_reply` is now
+  read as the delegated model's own account, like `final_reply` (kept) and
+  `answer`. associate now writes it in place of `final_reply`.
+
 ## [0.7.2] - 2026-11-18
 
 ### Added
