@@ -738,8 +738,10 @@ def strict_recheck(case_input: Mapping[str, Any], redaction: Mapping[str, Any]) 
     ``open_items``, ``counts``, ``drop_reasons``, ``judge_counts`` and
     ``report``. No decider, network, process, file or environment is used.
     """
-    ctx = _new_context(case_input, redaction)
-    finish = _as_dict(case_input.get("finish"))
+    return recheck_with_checker(case_input, redaction)[0]
+
+
+def _run_steps(ctx: _Context, finish: Mapping[str, Any]) -> tuple[list[_Fact], list[dict]]:
     ctx.facts = [_check_fact(ctx, raw) for raw in _as_list(finish.get("facts"))]
     for fact in ctx.facts:
         ctx.first_by_id.setdefault(fact.id, fact)
@@ -749,7 +751,22 @@ def strict_recheck(case_input: Mapping[str, Any], redaction: Mapping[str, Any]) 
     _cascade(ctx, order)
     _ask_decider(ctx, order)
     _cascade(ctx, order, decider_stage=True)
+    return order, refusals
 
+
+def recheck_with_checker(
+    case_input: Mapping[str, Any], redaction: Mapping[str, Any]
+) -> tuple[dict[str, Any], bool]:
+    """:func:`strict_recheck`'s result, and whether the checker refused nothing.
+
+    The second value is what associate writes as ``check.json`` ``accepted``
+    under strict: no fact's checker verdict is ``refused`` (steps 1 to 3) and
+    no verdict or open item was refused by the checker rules. A strict
+    hand-back is never refused for it; the value is reported, nothing more.
+    """
+    ctx = _new_context(case_input, redaction)
+    finish = _as_dict(case_input.get("finish"))
+    order, refusals = _run_steps(ctx, finish)
     facts = [_fact_record(f) for f in ctx.facts]
     records: dict[str, dict[str, Any]] = {}
     for fact, record in zip(ctx.facts, facts):
@@ -760,7 +777,7 @@ def strict_recheck(case_input: Mapping[str, Any], redaction: Mapping[str, Any]) 
         i["strict_reason"] for i in verdicts + open_items if i["strict_outcome"] == _DROPPED
     ]
     fact_reasons = [f["drop_reason"] for f in facts if f["strict_outcome"] == _DROPPED]
-    return {
+    result = {
         "facts": facts,
         "graph": {"order": [f.id for f in order], "refusals": refusals},
         "verdicts": verdicts,
@@ -770,3 +787,7 @@ def strict_recheck(case_input: Mapping[str, Any], redaction: Mapping[str, Any]) 
         "judge_counts": _judge_counts(facts),
         "report": _report(facts),
     }
+    accepted = not any(f.refused for f in ctx.facts) and all(
+        item["outcome"] == "accepted" for item in verdicts + open_items
+    )
+    return result, accepted
