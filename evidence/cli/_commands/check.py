@@ -461,9 +461,13 @@ def _render_strict(entry: dict[str, Any]) -> list[str]:
         for item in entry[kind]:
             reason = f", drop reason {item['drop_reason']}" if item["drop_reason"] else ""
             out.append(f"  {kind[:-1].replace('_', ' ')} {item['id']}: {item['outcome']}{reason}")
-    out.append(f"  counts: {_pairs(entry['counts'])}")
-    out.append(f"  drop reasons: {_pairs(entry['drop_reasons'])}")
-    out.append(_returned_line(entry))
+    out.extend(
+        [
+            f"  counts: {_pairs(entry['counts'])}",
+            f"  drop reasons: {_pairs(entry['drop_reasons'])}",
+            _returned_line(entry),
+        ]
+    )
     out += _agreement_lines(entry)
     if entry["not_compared"]:
         absent = ", ".join(entry["not_compared"])
